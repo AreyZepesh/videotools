@@ -1,0 +1,10 @@
+*/*
+**/__pycache__/*
+note*.md
+test*.*
+*.db
+*.env
+*.json
+*copy*
+logs
+*.csv
