@@ -15,24 +15,27 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         **kwargs
         )
 
-def get_list_codecs(data: str, filter: str) ->list[str]:
-    def get_codec_from_line(line: str) -> str:
-        # NOTE: не будет работать без фильтра, так как в выводе есть строки не подходящие по шаблону
-        parts = line.strip().split("  ")
-        return parts[0].split()[-1]
-    if not filter:
-        raise ValueError("Небходимо указать фильтр для кодеков")
-    lines = [ line for line in data.splitlines() if filter in line.lower()]
-    return [ get_codec_from_line(line) for line in lines ]
+def get_list_codecs(data: str, codec_filter: str) ->list[str]:
+    # NOTE: не будет работать без фильтра, так как в выводе есть строки не подходящие по шаблону
+    if not codec_filter:
+        raise ValueError("Необходимо указать фильтр для кодеков")
+    lines = [ line for line in data.splitlines() if codec_filter in line.lower()]
+    return [ line.split()[1] for line in lines ]
 
 def get_ffmpeg_nv_support(ffmpeg_path = FFMPEG) -> dict:
-    # NOTE: специально захардкодил функцию, для получение информации именно для nvidia
+    # NOTE: специально захардкодил функцию, для получения информации именно для nvidia
     if not Path(ffmpeg_path).exists():
         raise ValueError("ffmpeg.exe не найден")
-    result_encoders = run_subprocess( [ffmpeg_path, '-hide_banner', '-encoders'] ).stdout.strip()
-    encoders = get_list_codecs(result_encoders, "nvenc")
-    result_decoders = run_subprocess( [ffmpeg_path, '-hide_banner', '-decoders'] ).stdout.strip()
-    decoders = get_list_codecs(result_decoders, "cuvid")
+    
+    process_encoders = run_subprocess( [ffmpeg_path, '-hide_banner', '-encoders'] )
+    process_decoders = run_subprocess( [ffmpeg_path, '-hide_banner', '-decoders'] )
+
+    for process in [process_encoders, process_decoders]:
+        if process.returncode != 0:
+            raise RuntimeError(process.stderr.strip())
+    
+    encoders = get_list_codecs(process_encoders.stdout.strip(), "nvenc")
+    decoders = get_list_codecs(process_decoders.stdout.strip(), "cuvid")
     return {"encoders": encoders, "decoders": decoders}
 
 def get_media_info(path: str|Path, mediainfo_path: str|Path = MEDIAINFO) -> list[dict]:
@@ -44,38 +47,37 @@ def get_media_info(path: str|Path, mediainfo_path: str|Path = MEDIAINFO) -> list
         raise ValueError("Переданный путь ведет не к одиночному файлу")
 
     param = (
-        'Video;'
-        '{""Video%StreamKindID%"":'
-        '{""BitDepth"":%BitDepth%,""Width"":%Width%,""Height"":%Height%}}\\n'
-            )
-    param = (
         'Video;{""VideoID"":%StreamKindID%,""BitDepth"":%BitDepth%,""Width"":%Width%,""Height"":%Height%}\\n'
             )
     process = run_subprocess( [mediainfo_path, f"--Inform={param}", path] )
     
     if process.returncode != 0:
         raise RuntimeError(process.stderr.strip())
-    # print(result.stdout.strip().split())
-    video_tracks = [ json.loads(r) for r in process.stdout.strip().splitlines() ]
+
+    # NOTE: если будет падать, от того что одно из значение пустое - добавить ковычки в шаблоне, чтобы это были строки, а потом конвертировать в int|None
+    video_tracks = [ 
+        json.loads(r) for r in process.stdout.strip().splitlines() 
+        if r.strip() #зашита от пустых строк
+                    ] 
     return video_tracks
 
 def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920, max_height: int = 1080, video_suffixes: set|list|tuple = VIDEO_SUFFIXES) -> list:
     files_to_convert = []
-    for filepath in Path(dir_path).glob("**/*"):
-        if filepath.is_dir():
+    for file_path in Path(dir_path).glob("**/*"):
+        if file_path.is_dir():
             continue
-        if filepath.suffix.lower() not in video_suffixes:
+        if file_path.suffix.lower() not in video_suffixes:
             continue
         needs_convert = False
         try:
-            tracks = get_media_info(filepath)
+            tracks = get_media_info(file_path)
             if len(tracks) > 1:
                 raise ValueError("Более одного потока видео в файле")
             bit_depth = tracks[0].get("BitDepth")
             width = tracks[0].get("Width")
             height = tracks[0].get("Height")
         except Exception as e:
-            print(f"Ошибка при чтении файла, пропускаем: {filepath}")
+            print(f"Ошибка при чтении файла, пропускаем: {file_path}")
             print(e)
             continue
         
@@ -83,13 +85,13 @@ def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920,
             if bit_depth == 10:
                 needs_convert = True
             elif bit_depth != 8:
-                print(f"{filepath}: {bit_depth=}")
+                print(f"{file_path}: {bit_depth=}")
 
         if width > max_width or height > max_height:
             needs_convert = True
         
         if needs_convert:
-            files_to_convert.append(filepath)
+            files_to_convert.append(file_path)
 
     return files_to_convert
 
@@ -119,8 +121,8 @@ def main():
     # for x in data:
     #     print(x)
 
-    # Тест получения совместивых кодеков
-    # print(get_ffmpeg_nv_support())
+    # Тест получения совместимых кодеков
+    print(get_ffmpeg_nv_support())
 
     pass
 
