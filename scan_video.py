@@ -1,5 +1,6 @@
 ﻿import subprocess
 import json
+import os
 from pathlib import Path
 
 
@@ -7,7 +8,7 @@ VIDEO_SUFFIXES = {".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v'}
 MEDIAINFO = r'D:\_python\.video_cli\MediaInfo\MediaInfo.exe'
 FFMPEG = r'D:\_python\.video_cli\ffmpeg\bin\ffmpeg.exe'
 
-
+# SUBPROCESS BLOCK
 def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(
         args,
@@ -18,7 +19,7 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         )
 
 # MEDIAINFO BLOCK
-def get_media_info(path: str|Path, mediainfo_path: str|Path = MEDIAINFO) -> list[dict]:
+def get_video_info(path: str|Path, mediainfo_path: str|Path = MEDIAINFO) -> list[dict]:
     if not Path(mediainfo_path).exists():
         raise ValueError("MediaInfo.exe не найден")
     if not Path(path).exists():
@@ -65,28 +66,35 @@ def get_ffmpeg_nv_support(ffmpeg_path = FFMPEG) -> dict:
     decoders = get_list_codecs(process_decoders.stdout.strip(), "cuvid")
     return {"encoders": encoders, "decoders": decoders}
 
-def get_ffmpeg_kwargs(width: int = None, height: int = None, ffmpeg_path: str|Path = FFMPEG, check_nvidia:bool = True) -> dict[list]:
+def get_ffmpeg_kwargs(width: int = None, height: int = None, check_nvidia:bool = True, without_subtitle = False, ffmpeg_path: str|Path = FFMPEG) -> dict[str, list[str]]:
     kwargs = {
-        # ffmpeg,
+        'ffmpeg_path': ffmpeg_path,
         'global_options': [],
         'input_options': [],
         # -i input,
         'output_options': [],
         # output
         }
-    kwargs['global_options'] += ['-y', '-hide_banner']
+    kwargs['global_options'] += ['-y', '-hide_banner', 
+                                #  '-loglevel', 'level+datetime',
+                                #  '-loglevel', 'warning',
+                                 ]
     kwargs['input_options'] += []
-    kwargs['output_options'] += ["-map", "0", "-c", "copy", "-c:v"]
+    if without_subtitle:
+        kwargs['output_options'] += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
+    else:
+        kwargs['output_options'] += ["-map", "0", "-c", "copy"]
+
     
     nvidia = False
     if check_nvidia:
         nv_codec = get_ffmpeg_nv_support(ffmpeg_path)
         encoders = nv_codec.get('encoders')
-        nvidia = encoders and 'h264_nvenc' in encoders and nv_codec.get('decoders')
+        nvidia = bool(encoders and 'h264_nvenc' in encoders and nv_codec.get('decoders'))
 
     if nvidia:
         kwargs['input_options'] += ['-hwaccel', 'cuda']
-        kwargs['output_options'] += ["h264_nvenc",     
+        kwargs['output_options'] += ["-c:v", "h264_nvenc",     
                                     '-preset', 'p5',
                                     '-rc', 'vbr',
                                     '-cq', '23', 
@@ -94,27 +102,43 @@ def get_ffmpeg_kwargs(width: int = None, height: int = None, ffmpeg_path: str|Pa
         if width or height:
             kwargs['input_options'] += ['-hwaccel_output_format', 'cuda']
             kwargs['output_options'] += ["-vf", f"scale_cuda={width if width else "-2"}:{height if height else "-2"}:format=nv12"]
-            # kwargs['output_options'] += ["-vf", f"scale_cuda={width}:{height}:format=nv12"]
 
     else:
         # kwargs['input_options'] += ['-hwaccel', 'auto']
-        kwargs['output_options'] += ["libx264",
+        kwargs['output_options'] += ["-c:v", "libx264",
                                     '-preset', 'medium',
                                     '-crf', '22',
                                     ]
         if width or height:
             kwargs['output_options'] += ["-vf", f"scale={width if width else "-2"}:{height if height else "-2"}"]
-            # kwargs['output_options'] += ["-vf", f"scale={width}:{height}"]
-    kwargs['output_options'] += ["-pix_fmt", "yuv420p"]
+
+        kwargs['output_options'] += ["-pix_fmt", "yuv420p"]
+    # kwargs['input_options'] += ['-fflags', '+genpts'] # создание новых timestamp’ов вместо старых
+    # kwargs['output_options'] += ['-progress','pipe:1', '-nostats'] # вывыдить прогресс строками, а не динамикой.
+
     # old parameters
     # c  = [f'-hwaccel cuda -hwaccel_output_format cuda -i "{Path('input_path')}" -c:v h264_nvenc -b:v 4500K -vf "scale_cuda=1280:720" "{Path('output_path')}"']
     # rc = [f'-hwaccel auto  -i "{Path('input_path')}" -b:v 4500K -s 1280x720 "{Path('output_path')}"']
+
     return kwargs
 
-def convert_video(input_path: str|Path, output_path: str|Path, ffmpeg_kwargs: list):
+def convert_video(input_path: str|Path, output_path: str|Path, ffmpeg_kwargs: dict[str, list[str]]):
+    args = [ffmpeg_kwargs.get('ffmpeg_path')]
+    args += ffmpeg_kwargs.get('global_options')
+    args += ffmpeg_kwargs.get('input_options')
+    args += ['-i', input_path]
+    args += ffmpeg_kwargs.get('output_options')
+    args += [output_path]
+
+    process = subprocess.run(args)
+    # process = run_subprocess(args)
+    if process.returncode != 0:
+        raise RuntimeError(f"Процесс завершился неверно")
+        # raise RuntimeError(f"Процесс завершился неверно\n{process.stderr.strip()}")
     pass
 
-def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920, max_height: int = 1080, video_suffixes: set|list|tuple = VIDEO_SUFFIXES) -> list:
+# FILE/PATH BLOCK
+def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int|None = None, max_height: int|None = None, video_suffixes: set|list|tuple = VIDEO_SUFFIXES) -> list:
     files_to_convert = []
     for file_path in Path(dir_path).glob("**/*"):
         if file_path.is_dir():
@@ -123,7 +147,7 @@ def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920,
             continue
         needs_convert = False
         try:
-            tracks = get_media_info(file_path)
+            tracks = get_video_info(file_path)
             if len(tracks) > 1:
                 raise ValueError("Более одного потока видео в файле")
             bit_depth = tracks[0].get("BitDepth")
@@ -140,7 +164,7 @@ def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920,
             elif bit_depth != 8:
                 print(f"{file_path}: {bit_depth=}")
 
-        if width > max_width or height > max_height:
+        if (max_width and width > max_width) or (max_height and height > max_height):
             needs_convert = True
         
         if needs_convert:
@@ -148,6 +172,25 @@ def scan_dir(dir_path: str|Path, find_10bit: bool = True, max_width: int = 1920,
 
     return files_to_convert
 
+# RUN BLOCK
+def run_convert(input_path, kwargs, fallback_kwargs):
+    output_path = Path(input_path.parent, r"converted", input_path.name)
+    # output_path = output_path.with_suffix('.mp4')
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f'{input_path} -> {output_path}')
+    try:
+        convert_video(input_path, output_path, kwargs)
+    except Exception as nvidia_ex:
+        print(nvidia_ex)
+        try:
+            convert_video(input_path, output_path, fallback_kwargs)
+        except Exception as fallback_ex:
+            print(fallback_ex)
+            if output_path.exists():
+                os.remove(output_path)
+            return
+
+# OTHER BLOCK
 def test():
     # print(subprocess.list2cmdline( ['1', 'Video;{""VideoID"":%StreamKindID%,""BitDepth"":%BitDepth%,""Width"":%Width%,""Height"":%Height%}\\n', '1'] ))
 
@@ -155,7 +198,7 @@ def test():
     vfile_path = r'D:\Видео\_маме\Кафедра (нужна конвертация)\01. Кафедра.mkv'
     # vfile_path = r'D:\_python\videotools\codex\two_video_streams_sample.mkv'
     # vfile_path = r'D:\Видео\_маме\Анора.mkv'
-    results = get_media_info(vfile_path)
+    results = get_video_info(vfile_path)
     print(type(results))
     print(results)
     for result in results:
@@ -176,15 +219,40 @@ def test():
     # Тест получения совместимых кодеков
     print(get_ffmpeg_nv_support())
 
+def test_convert():
+    width = 1280
+    height = False
+    without_subtitle = True
+
+    data = scan_dir(r"D:\Видео\_маме\Кафедра (нужна конвертация)", max_width = width, max_height = height)
+
+    kwargs = get_ffmpeg_kwargs(width = width, height=height, 
+                               without_subtitle=without_subtitle)
+    fallback_kwargs = get_ffmpeg_kwargs(width = width, height=height, 
+                                        check_nvidia=False, without_subtitle=without_subtitle)
+    
+    for path in data:
+        run_convert(path, kwargs, fallback_kwargs)
+        
+
+    # input_path = Path(r'D:\Видео\_маме\Кафедра (нужна конвертация)\01. Кафедра.mkv')
+    # output_path = Path(input_path.parent, r"converted", input_path.name)
+    # output_path.parent.mkdir(parents=True, exist_ok=True)
+    # print(f'{input_path} -> {output_path}')
+    # try:
+    #     convert_video(input_path, output_path, kwargs)
+    # except Exception as nvidia_ex:
+    #     print(nvidia_ex)
+    #     try:
+    #         convert_video(input_path, output_path, fallback_kwargs)
+    #     except Exception as fallback_ex:
+    #         print(fallback_ex)
+    #         if output_path.exists():
+    #             os.remove(output_path)
+            
+
 def main():
-    kwargs1 = get_ffmpeg_kwargs(width=1280)
-    kwargs2 = get_ffmpeg_kwargs(height=720, 
-                      check_nvidia = False
-                      )
-    print(kwargs1)
-    #Вывод: {'global_options': ['-y', '-hide_banner'], 'input_options': ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'], 'output_options': ['-map', '0', '-c', 'copy', '-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', '23', '-b:v', '0', '-vf', 'scale_cuda=1280:-2:format=nv12', '-pix_fmt', 'yuv420p']}
-    print(kwargs2)
-    #Вывод: {'global_options': ['-y', '-hide_banner'], 'input_options': [], 'output_options': ['-map', '0', '-c', 'copy', '-c:v', 'libx264', '-preset', 'medium', '-crf', '22', '-vf', 'scale=-2:720', '-pix_fmt', 'yuv420p']}
+    test_convert()
     pass
 
 

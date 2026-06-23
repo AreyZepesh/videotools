@@ -6,5 +6,5 @@ test*.*
 *.env
 *.json
 *copy*
-logs
+log*
 *.csv
