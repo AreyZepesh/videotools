@@ -6,14 +6,23 @@ from common import (
 CONFIG_PATH = './config.json'
 
 def _is_ffmeg(ffmpeg_path: Path) -> bool:
-    process = run_subprocess([ffmpeg_path.absolute(), '-version'])
-    if 'ffmpeg' in process.stdout.strip().split():
-        return True
+    try:
+        process = run_subprocess([ffmpeg_path.absolute(), '-version'])
+        if 'ffmpeg' in process.stdout.strip().split():
+            return True
+    except:
+        return False
 
 def _is_mediainfo(mediainfo_path: Path) -> bool:
-    process = run_subprocess([mediainfo_path.absolute(), '--Version'])
-    if 'MediaInfo' in process.stdout.strip().split():
-        return True
+    try:
+        # NOTE: таймаут выкидывает прогу если она долго отвечает, мини защита от открытого гуя
+        process = run_subprocess([mediainfo_path.absolute(), '--Version'], 
+                                **dict(timeout = 10)
+                                )
+        if 'MediaInfo' in process.stdout.strip().split():
+            return True
+    except:
+        return False
 
 def find_exes():
     ffmpeg = None

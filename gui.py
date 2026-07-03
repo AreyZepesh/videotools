@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.messagebox import showerror, showwarning, showinfo
 
-from option import load_cfg
+from options_file import load_cfg
 
 class App(tk.Tk):
     def __init__(self):

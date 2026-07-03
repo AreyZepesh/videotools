@@ -2,7 +2,7 @@
     subprocess, json, os, Path,
     run_subprocess,
     )
-from option import load_cfg
+from options_file import load_cfg
 
 CFG = load_cfg()
 VIDEO_SUFFIXES = {".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v'}
