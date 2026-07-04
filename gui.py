@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.messagebox import showerror, showwarning, showinfo
 
+from common import Config
 from options_file import load_cfg
 
 class App(tk.Tk):
@@ -13,7 +14,7 @@ class App(tk.Tk):
         self.geometry("800x600")
         self.resizable(False, False)
 
-        self.cfg = load_cfg()
+        self.cfg = Config()
         self._check_cfg()
 
         self._build_main_menu()
@@ -28,7 +29,8 @@ class App(tk.Tk):
         self.config(menu=self.main_menu)
 
     def _check_cfg(self):
-        if not self.cfg.get('ffmpeg') or not self.cfg.get('mediainfo'):
+        self.cfg.load_cfg()
+        if not self.cfg.ffmpeg or not self.cfg.mediainfo:
             showwarning(title="Предупреждение",
                         message="Не сохранены или не найдены пути к необходимым компонентам! " \
                         "Укажите пути до ffmpeg.exe и mediainfo.exe")
@@ -38,18 +40,19 @@ class App(tk.Tk):
         OptionsWindow(self, self.cfg)
 
 class OptionsWindow(tk.Toplevel):
-    def __init__(self, parent, cfg):
+    def __init__(self, parent, cfg: Config):
         super().__init__(parent)
-        self.cfg = cfg
+        self.cfg: Config = cfg
 
         self.title("Настройки")
+        self.geometry("500x250")
 
         self.options_tab = ttk.Frame(self)
         self.options_tab.pack(fill="x", padx=10, pady=10)
 
-        self.ffmpeg_path = tk.StringVar(value=cfg.get("ffmpeg") or "")
+        self.ffmpeg_path = tk.StringVar(value=cfg.ffmpeg or "")
         self._build_ffmpeg()
-        self.mediainfo_path = tk.StringVar(value=cfg.get("mediainfo") or "")
+        self.mediainfo_path = tk.StringVar(value=cfg.mediainfo or "")
         self._build_mediainfo()
         self._build_ok_cancel()
         
@@ -86,8 +89,8 @@ class OptionsWindow(tk.Toplevel):
                    ).pack(side="right", padx=(0, 8), pady=8)
         
     def _ok_save(self):
-        self.cfg['ffmpeg'] = self.ffmpeg_path.get()
-        self.cfg['mediainfo'] = self.mediainfo_path.get()
+        self.cfg.ffmpeg = self.ffmpeg_path.get()
+        self.cfg.mediainfo = self.mediainfo_path.get()
         # save_config(self.cfg)
         self.destroy()
         # TODO дописать действие для ok, сохранение параметров, а еще проверку пути при выборе
