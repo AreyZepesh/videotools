@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from tkinter.messagebox import showerror, showwarning, showinfo
 
 from common import Config
-from options_file import load_cfg
+from old.options_file import load_cfg
 
 class App(tk.Tk):
     def __init__(self):
@@ -30,7 +30,7 @@ class App(tk.Tk):
 
     def _check_cfg(self):
         self.cfg.load_cfg()
-        if not self.cfg.ffmpeg or not self.cfg.mediainfo:
+        if not self.cfg.ffmpeg_path or not self.cfg.mediainfo_path:
             showwarning(title="Предупреждение",
                         message="Не сохранены или не найдены пути к необходимым компонентам! " \
                         "Укажите пути до ffmpeg.exe и mediainfo.exe")
@@ -50,9 +50,9 @@ class OptionsWindow(tk.Toplevel):
         self.options_tab = ttk.Frame(self)
         self.options_tab.pack(fill="x", padx=10, pady=10)
 
-        self.ffmpeg_path = tk.StringVar(value=cfg.ffmpeg or "")
+        self.ffmpeg_path = tk.StringVar(value=cfg.ffmpeg_path or "")
         self._build_ffmpeg()
-        self.mediainfo_path = tk.StringVar(value=cfg.mediainfo or "")
+        self.mediainfo_path = tk.StringVar(value=cfg.mediainfo_path or "")
         self._build_mediainfo()
         self._build_ok_cancel()
         
@@ -89,8 +89,8 @@ class OptionsWindow(tk.Toplevel):
                    ).pack(side="right", padx=(0, 8), pady=8)
         
     def _ok_save(self):
-        self.cfg.ffmpeg = self.ffmpeg_path.get()
-        self.cfg.mediainfo = self.mediainfo_path.get()
+        self.cfg.ffmpeg_path = self.ffmpeg_path.get()
+        self.cfg.mediainfo_path = self.mediainfo_path.get()
         # save_config(self.cfg)
         self.destroy()
         # TODO дописать действие для ok, сохранение параметров, а еще проверку пути при выборе

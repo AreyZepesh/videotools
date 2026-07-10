@@ -2,51 +2,60 @@ import subprocess
 import json
 import os
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, replace
 
 @dataclass
 class Config():
-    cfg_file_path: str = field(default=Path('./config.json'))
-
-    ffmpeg: Path|str|None = field(default=None)
-    mediainfo: Path|str|None = field(default=None)
+    ffmpeg_path: Path|str|None = field(default=None)
+    mediainfo_path: Path|str|None = field(default=None)
 
     video_suffixes: list[str] = field(default_factory=lambda: [".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v'])
 
     width: int|None = field(default=None)
     height: int|None = field(default=None)
+    find_10bit: bool = field(default=True)
     check_nvidia: bool = field(default=True)
     exclude_subtitles: bool = field(default=False)
+
+    cfg_file_path: str = field(default=Path('./config.json'))
+
+    def __post_init__(self):
+        if self.ffmpeg_path:
+            self.ffmpeg_path = Path(self.ffmpeg_path).absolute()
+        if self.mediainfo_path:
+            self.mediainfo_path = Path(self.mediainfo_path).absolute()
     
     def save_cfg(self):
         config = dict(
-            ffmpeg = self.ffmpeg,
-            mediainfo = self.mediainfo,
+            ffmpeg = self.ffmpeg_path,
+            mediainfo = self.mediainfo_path,
             )
         with open(self.cfg_file_path, 'w', encoding='utf-8-sig') as file:
             # json.dump(config, file, indent=0)
             json.dump(asdict(self), file, indent=0)
             
     def load_cfg(self):
-        if not Path(self.cfg_file_path).exists():
-            pass
-            # self.find_exes()
+        if Path(self.cfg_file_path).exists():
+            with open(self.cfg_file_path, 'r', encoding='utf-8-sig') as file:
+                config = json.load(file)
+                self.ffmpeg_path = config.get("ffmpeg")
+                self.mediainfo_path = config.get("mediainfo")
+        else:
+            self.find_exes()
             # self.save_cfg()
-        with open(self.cfg_file_path, 'r', encoding='utf-8-sig') as file:
-            config = json.load(file)
-            self.ffmpeg = config.get("ffmpeg")
-            self.mediainfo = config.get("mediainfo")
+            pass
+        self.__post_init__()
 
     def find_exes(self):
         for path in Path('.').rglob('*.exe'):
-            if self.ffmpeg and self.mediainfo:
+            if self.ffmpeg_path and self.mediainfo_path:
                 break
-            if not self.ffmpeg and path.name.lower() == 'ffmpeg.exe':
+            if not self.ffmpeg_path and path.name.lower() == 'ffmpeg.exe':
                 if self._is_ffmeg(path):
-                    self.ffmpeg = str(path.absolute())
-            if not self.mediainfo and path.name.lower() == 'mediainfo.exe':
+                    self.ffmpeg_path = str(path.absolute())
+            if not self.mediainfo_path and path.name.lower() == 'mediainfo.exe':
                 if self._is_mediainfo(path):
-                    self.mediainfo = str(path.absolute())
+                    self.mediainfo_path = str(path.absolute())
 
     def _is_ffmeg(self, ffmpeg_path: Path|str) -> bool:
         ffmpeg_path = Path(ffmpeg_path)
@@ -68,6 +77,12 @@ class Config():
                 return True
         except:
             return False
+
+    def get_dict(self):
+        return asdict(self)
+    
+    def get_replaced_copy(self, **changes):
+        return replace(self, **changes)
 
 
 
