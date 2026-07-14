@@ -1,7 +1,7 @@
 import subprocess
 import json
 import os
-from pathlib import Path
+from pathutils import Path
 from dataclasses import dataclass, field, asdict, replace
 
 @dataclass

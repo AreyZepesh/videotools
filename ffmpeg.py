@@ -21,7 +21,7 @@ class FFmpegCmdBuilder:
         self.use_nvidia = False
         if not only_CPU and cfg.check_nvidia:
             self.use_nvidia = is_nvidia_supported(cfg)
-            # TODO: использование функции вне класса, норм ли?
+            # TODO: использование функции извне класса, норм ли?
 
         self.scale = None
         if cfg.width or cfg.height:
@@ -137,74 +137,66 @@ def is_nvidia_supported(cfg: Config):
     
 
 def get_ffmpeg_kwargs(cfg: Config) -> dict[str, list[str]]:
-    # build_ffmpeg_options
-    nvidia = False
-    if cfg.check_nvidia:
-        nvidia = is_nvidia_supported(cfg)
+    # # build_ffmpeg_options
+    # nvidia = False
+    # if cfg.check_nvidia:
+    #     nvidia = is_nvidia_supported(cfg)
     
-    scale = None
-    if cfg.width or cfg.height:
-        scale = f'{cfg.width if cfg.width else "-2"}:{cfg.height if cfg.height else "-2"}'
+    # scale = None
+    # if cfg.width or cfg.height:
+    #     scale = f'{cfg.width if cfg.width else "-2"}:{cfg.height if cfg.height else "-2"}'
 
-    kwargs = {
-        'ffmpeg_path': [cfg.ffmpeg_path],
-        'global_options': [],
-        'input_options': [],
-        # -i input,
-        'output_options': [],
-        # output
-        }
-    kwargs['global_options'] += ['-y', '-hide_banner', 
-                                #  '-loglevel', 'level+datetime',
-                                #  '-loglevel', 'warning',
-                                 ]
-    kwargs['input_options'] += []
-    if cfg.exclude_subtitles:
-        kwargs['output_options'] += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
-    else:
-        kwargs['output_options'] += ["-map", "0", "-c", "copy"]
+    # kwargs = {
+    #     'ffmpeg_path': [cfg.ffmpeg_path],
+    #     'global_options': [],
+    #     'input_options': [],
+    #     # -i input,
+    #     'output_options': [],
+    #     # output
+    #     }
+    # kwargs['global_options'] += ['-y', '-hide_banner', 
+    #                             #  '-loglevel', 'level+datetime',
+    #                             #  '-loglevel', 'warning',
+    #                              ]
+    # kwargs['input_options'] += []
+    # if cfg.exclude_subtitles:
+    #     kwargs['output_options'] += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
+    # else:
+    #     kwargs['output_options'] += ["-map", "0", "-c", "copy"]
 
-    if nvidia:
-        kwargs['input_options'] += ['-hwaccel', 'cuda']
-        kwargs['output_options'] += ["-c:v", "h264_nvenc",     
-                                    '-preset', 'p5',
-                                    '-rc', 'vbr',
-                                    '-cq', '23', 
-                                    "-b:v", "0"]
-        if scale:
-            kwargs['input_options'] += ['-hwaccel_output_format', 'cuda']
-            kwargs['output_options'] += ["-vf", f'scale_cuda={scale}:format=nv12']
+    # if nvidia:
+    #     kwargs['input_options'] += ['-hwaccel', 'cuda']
+    #     kwargs['output_options'] += ["-c:v", "h264_nvenc",     
+    #                                 '-preset', 'p5',
+    #                                 '-rc', 'vbr',
+    #                                 '-cq', '23', 
+    #                                 "-b:v", "0"]
+    #     if scale:
+    #         kwargs['input_options'] += ['-hwaccel_output_format', 'cuda']
+    #         kwargs['output_options'] += ["-vf", f'scale_cuda={scale}:format=nv12']
 
-    else:
-        # kwargs['input_options'] += ['-hwaccel', 'auto']
-        kwargs['output_options'] += ["-c:v", "libx264",
-                                    '-preset', 'medium',
-                                    '-crf', '22',
-                                    ]
-        if scale:
-            kwargs['output_options'] += ["-vf", f'scale={scale}']
+    # else:
+    #     # kwargs['input_options'] += ['-hwaccel', 'auto']
+    #     kwargs['output_options'] += ["-c:v", "libx264",
+    #                                 '-preset', 'medium',
+    #                                 '-crf', '22',
+    #                                 ]
+    #     if scale:
+    #         kwargs['output_options'] += ["-vf", f'scale={scale}']
 
-    if not (nvidia and scale):
-        kwargs['output_options'] += ["-pix_fmt", "yuv420p"]
-    # kwargs['input_options'] += ['-fflags', '+genpts'] # создание новых timestamp’ов вместо старых
-    # kwargs['output_options'] += ['-progress','pipe:1', '-nostats'] # выводить прогресс строками, а не динамикой.
+    # if not (nvidia and scale):
+    #     kwargs['output_options'] += ["-pix_fmt", "yuv420p"]
+    # # kwargs['input_options'] += ['-fflags', '+genpts'] # создание новых timestamp’ов вместо старых
+    # # kwargs['output_options'] += ['-progress','pipe:1', '-nostats'] # выводить прогресс строками, а не динамикой.
 
-    # old parameters
-    # c  = [f'-hwaccel cuda -hwaccel_output_format cuda -i "{Path('input_path')}" -c:v h264_nvenc -b:v 4500K -vf "scale_cuda=1280:720" "{Path('output_path')}"']
-    # rc = [f'-hwaccel auto  -i "{Path('input_path')}" -b:v 4500K -s 1280x720 "{Path('output_path')}"']
+    # # old parameters
+    # # c  = [f'-hwaccel cuda -hwaccel_output_format cuda -i "{Path('input_path')}" -c:v h264_nvenc -b:v 4500K -vf "scale_cuda=1280:720" "{Path('output_path')}"']
+    # # rc = [f'-hwaccel auto  -i "{Path('input_path')}" -b:v 4500K -s 1280x720 "{Path('output_path')}"']
 
-    return kwargs
+    # return kwargs
+    pass
 
 def main():
-    # cfg = Config()
-    # cfg.load_cfg()
-    # cfg.width = 1280
-    # x = FFmpegCmdBuilder(cfg)
-    # args = x.build('in', 'out')
-    # print(args)
-    # print(x.printable(args))
-    
-
     pass
 
 if __name__ == "__main__":
