@@ -1,11 +1,16 @@
 import subprocess
 import json
 import os
-from pathutils import Path
+from pathlib import Path
 from dataclasses import dataclass, field, asdict, replace
+from typing import Literal
 
 @dataclass
 class Config():
+    input_dir: Path|str|None = field( default_factory=lambda: Path(__file__).parent.absolute() )
+    output_dir: Path|str|None = field(default=None)
+    output_mode: Literal["tree", "subfolder"] = field(default="tree")
+
     ffmpeg_path: Path|str|None = field(default=None)
     mediainfo_path: Path|str|None = field(default=None)
 
@@ -19,32 +24,44 @@ class Config():
 
     cfg_file_path: str = field(default=Path('./config.json'))
 
-    def __post_init__(self):
-        if self.ffmpeg_path:
-            self.ffmpeg_path = Path(self.ffmpeg_path).absolute()
-        if self.mediainfo_path:
-            self.mediainfo_path = Path(self.mediainfo_path).absolute()
+    # def __post_init__(self):
+    #     if self.input_dir:
+    #         self.input_dir = Path(self.input_dir).absolute()
+    #     if self.output_dir:
+    #         self.output_dir = Path(self.output_dir).absolute()
+    #     if self.ffmpeg_path:
+    #         self.ffmpeg_path = Path(self.ffmpeg_path).absolute()
+    #     if self.mediainfo_path:
+    #         self.mediainfo_path = Path(self.mediainfo_path).absolute()
     
+    def __setattr__(self, name, value):
+        if name =='output_mode':
+            if value not in ["tree", "subfolder"]:
+                raise ValueError('output_mode может быть только "tree" или "subfolder"')
+        if name in ['input_dir', 'output_dir', 'ffmpeg_path', 'mediainfo_path', 'cfg_file_path']:
+            value = Path(value).absolute() if value else None
+        super().__setattr__(name, value)
+
     def save_cfg(self):
         config = dict(
             ffmpeg = self.ffmpeg_path,
             mediainfo = self.mediainfo_path,
             )
         with open(self.cfg_file_path, 'w', encoding='utf-8-sig') as file:
-            # json.dump(config, file, indent=0)
-            json.dump(asdict(self), file, indent=0)
+            json.dump(config, file, indent=0)
+            # json.dump(asdict(self), file, indent=0)
             
     def load_cfg(self):
-        if Path(self.cfg_file_path).exists():
+        if self.cfg_file_path.exists():
             with open(self.cfg_file_path, 'r', encoding='utf-8-sig') as file:
                 config = json.load(file)
                 self.ffmpeg_path = config.get("ffmpeg")
                 self.mediainfo_path = config.get("mediainfo")
         else:
             self.find_exes()
-            # self.save_cfg()
+            self.save_cfg()
             pass
-        self.__post_init__()
+        # self.__post_init__()
 
     def find_exes(self):
         for path in Path('.').rglob('*.exe'):
@@ -84,6 +101,17 @@ class Config():
     def get_replaced_copy(self, **changes):
         return replace(self, **changes)
 
+    def build_output_path(self, file_path: Path|str):
+        """Заменяет корень в пути, сохраняя структуру дерева"""
+        fp = Path(file_path)
+        relative = fp.relative_to(self.input_dir)
+        if self.output_mode == "subfolder":
+            return Path(fp.parent,"_converted", fp.name).absolute()
+
+        if self.output_mode == "tree":
+            if self.output_dir is not None:
+                return Path(self.output_dir, relative).absolute()
+            return Path(self.input_dir.parent, f"{self.input_dir.name}_converted", relative).absolute()
 
 
 # SUBPROCESS BLOCK
@@ -96,8 +124,14 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         **kwargs
         )
 
+def str_to_int(value):
+    if not isinstance(value, (int, float)):
+        # try:
+            value = int("".join(c for c in value if  c.isdecimal()))
+        # except:
+        #     value = None
+    return value
+
 if __name__ == "__main__":
-    x = Config()
-    # x.cfg_file_path = "./config.2"
-    # x.save_cfg()
+    # print(str_to_int("s"))
     pass

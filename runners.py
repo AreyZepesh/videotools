@@ -4,7 +4,7 @@
     )
 
 from ffmpeg import FFmpegCmdBuilder
-from mediainfo import get_video_info, is_need_convert
+from mediainfo import get_video_info, is_text, is_video_need_convert
 from pathutils import scan_dir
 
 # RUN BLOCK
@@ -37,7 +37,7 @@ def run_convert(input_path, ff_cmd: FFmpegCmdBuilder, fallback_ff_cmd: FFmpegCmd
             return
         
 def run_only_scan(dir_path, cfg: Config):
-    data = scan_dir(dir_path, cfg=cfg, check_func=is_need_convert)
+    data = scan_dir(dir_path, cfg=cfg, check_func=is_video_need_convert) #is_text
     lines = []
     if not data:
         lines.append("По заданным параметрам ничего не найдено")
@@ -47,7 +47,7 @@ def run_only_scan(dir_path, cfg: Config):
     return lines
 
 def run_scan_and_convert(dir_path, cfg: Config):
-    data = scan_dir(dir_path, cfg=cfg, check_func=is_need_convert)
+    data = scan_dir(dir_path, cfg=cfg, check_func=is_video_need_convert)
 
     if not data:
         return
@@ -63,14 +63,24 @@ def run_from_cli():
     
     cfg = Config()
     cfg.load_cfg()
-    cfg.exclude_subtitles = True
+    # cfg.exclude_subtitles = True
+    # cfg.width = 1280
     dir = r"D:\Видео\_маме\Кафедра (нужна конвертация)"
+    dir = r"D:\Видео\_маме"
+    cfg.input_dir = Path(dir)
+    # cfg.output_dir = Path(r"C:\1")
+    # cfg.output_mode = "tree"
+    # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
-    # lines = run_only_scan(dir, cfg)
-    # for line in lines:
-    #     print(line)
+    lines = run_only_scan(dir, cfg)
+
+    for line in lines[1:]:
+        # print(type(line))
+        print(line)
+
+        # print(cfg.build_output_path(line))
     # print()
-    run_scan_and_convert(dir, cfg)
+    # run_scan_and_convert(dir, cfg)
 
 # OTHER BLOCK
 

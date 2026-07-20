@@ -1,19 +1,20 @@
-from pathlib import Path
+# from pathlib import Path
 from common import (
-    Config
+    Path,
+    Config,
     )
 
-class PathMapping(Path):
-    # NOTE: мигрировал минимальный функционал из другого своего проекта
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.src_path = Path(self)
-        self.dst_path = Path(self)
+# class PathMapping(Path):
+#     # NOTE: мигрировал минимальный функционал из другого своего проекта
+#     def __init__(self, *args):
+#         super().__init__(*args)
+#         self.src_path = Path(self)
+#         self.dst_path = Path(self)
 
-    def remap_dst_path(self, input_dir, output_dir):
-        """replace in dst_path"""
-        relative = self.relative_to(input_dir)
-        self.dst_path = Path(output_dir, relative) 
+#     def remap_dst_path(self, input_dir, output_dir):
+#         """replace in dst_path"""
+#         relative = self.relative_to(input_dir)
+        # self.dst_path = Path(output_dir, relative) 
 
 # FILE/PATH BLOCK
 def scan_dir(dir_path: str|Path, cfg: Config, check_func) -> list:
