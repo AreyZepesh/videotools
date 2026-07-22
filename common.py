@@ -23,16 +23,6 @@ class Config():
     exclude_subtitles: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))
-
-    # def __post_init__(self):
-    #     if self.input_dir:
-    #         self.input_dir = Path(self.input_dir).absolute()
-    #     if self.output_dir:
-    #         self.output_dir = Path(self.output_dir).absolute()
-    #     if self.ffmpeg_path:
-    #         self.ffmpeg_path = Path(self.ffmpeg_path).absolute()
-    #     if self.mediainfo_path:
-    #         self.mediainfo_path = Path(self.mediainfo_path).absolute()
     
     def __setattr__(self, name, value):
         if name =='output_mode':

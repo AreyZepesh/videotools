@@ -54,7 +54,8 @@ class FFmpegCmdBuilder:
     def _build_output_options(self):
         _output_options = []
         if self.cfg.exclude_subtitles:
-            _output_options += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
+            _output_options += ["-map", "0", "-sn", "-c", "copy"]
+            # _output_options += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
         else:
             _output_options += ["-map", "0", "-c", "copy"]
         # NVIDIA 
