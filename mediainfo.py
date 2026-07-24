@@ -2,12 +2,23 @@ from common import (
     subprocess, json, Path, 
     dataclass, field,
     run_subprocess, Config, str_to_int,
+    rprint,
     )
 from collections import defaultdict
-from rich import print
 
-# @dataclass
-# class VideoTrack():
+
+@dataclass(frozen=True)
+class SubtitleInfo():
+    index: int
+    is_default: bool
+    language: str
+    title: str
+    codecID: str
+    codec: str
+    suffix: str
+    out_path: Path
+
+
 class MediaFileInfo():
     def __init__(self, path: Path|str, cfg: Config):
         self.cfg = cfg
@@ -18,11 +29,12 @@ class MediaFileInfo():
 
         all_tracks = self.get_all_info()
 
-        self._video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
-        self._text_need_convert: bool = self.is_text_need_convert(all_tracks.get("Text"))
-        self.need_convert: bool = self._video_need_convert or self._text_need_convert
-
         self.subtitles: list= self.get_simple_text_info(all_tracks.get("Text"))
+        self._text_need_convert: bool = True if len(self.subtitles) > 3 else False 
+        #self.is_text_need_convert(all_tracks.get("Text"))
+
+        self._video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
+        self.need_convert: bool = self._video_need_convert or self._text_need_convert
 
     def __str__(self):
         return f'{self.path}   ->   {self.output_path}'
@@ -87,18 +99,18 @@ class MediaFileInfo():
         return needs_convert
 
     @staticmethod
-    def _get_subtitle_extension(codec: str):
-        d = {   "S_TEXT/UTF8": ".srt",
-                "S_TEXT/ASS": ".ass",
-                "S_TEXT/SSA": ".ssa",
-                "S_TEXT/WEBVTT": ".vtt",
-                "S_HDMV/PGS": ".sup",
-                # "S_VOBSUB": ".sub", # (+ .idx рядом)
-                "S_TEXT/USF": ".usf",
-                "S_DVBSUB": ".sub",
+    def _get_sub_suffix_and_codec(codec: str) -> tuple[str]:
+        d = {   "S_TEXT/UTF8": (".srt", "subrip"),
+                "S_TEXT/ASS": (".ass", "ass"),
+                "S_TEXT/SSA": (".ssa", "ssa"),
+                "S_TEXT/WEBVTT": (".vtt", "webvtt"),
+                "S_HDMV/PGS": (".sup", "hdmv_pgs_subtitle"),
+                "S_VOBSUB": (".sub", "dvd_subtitle"), # (+ .idx рядом)
+                "S_TEXT/USF": (".usf", "usf"),
+                "S_DVBSUB": (".sub", "dvbsub"),
                 }
         return d.get(codec)
-        
+    
 
     def is_text_need_convert(self, subtitle_tracks: list[dict]) -> bool:
         return 
@@ -111,15 +123,17 @@ class MediaFileInfo():
         
         for track in subtitle_tracks:
             codecID = track.get("CodecID")
-            # suffix = self._get_subtitle_extension(codecID)
-            subtitles.append(dict(
+            suffix, codec = self._get_sub_suffix_and_codec(codecID)
+            # subtitles.append(dict(
+            subtitles.append(SubtitleInfo(
                 index = str_to_int(track.get("@typeorder"))-1,
                 is_default = True if track.get("Default") in ["Yes", "Да", "True", True] else False,
                 language = track.get("Language"),
                 title = track.get("Title"),
                 codecID = codecID,
-                suffix = self._get_subtitle_extension(codecID),
-                # path = Path(self.output_path.parent, self.output_path.stem+"_"+track.get("Language")+suffix),
+                codec = codec,
+                suffix = suffix,
+                out_path = Path(self.output_path.parent, self.output_path.stem+"_"+track.get("Language")+suffix),
                 ))
             # print("ru" in track.get("Language") or "en" in track.get("Language"))
 
@@ -133,7 +147,7 @@ def main():
     cfg = Config(Path(f).parent)
     cfg.load_cfg()
     data = MediaFileInfo(f, cfg)
-    print(data.__dict__)
+    rprint(data.__dict__)
 
 if __name__ == "__main__":
     main()

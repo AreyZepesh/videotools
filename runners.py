@@ -1,11 +1,11 @@
 ﻿from common import (
     subprocess, json, Path,
-    run_subprocess, Config
+    run_subprocess, Config,
+    rprint,
     )
 
+from mediainfo import MediaFileInfo, SubtitleInfo
 from ffmpeg import FFmpegCmdBuilder
-from mediainfo import MediaFileInfo
-# from pathutils import scan_dir
 
 
 def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
@@ -16,9 +16,6 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
         if file_path.suffix.lower() not in cfg.video_suffixes:
             continue
         
-        # if check_func is None:
-        #     files_to_convert.append(file_path)
-        # elif
         v_file = MediaFileInfo(file_path, cfg)
         if v_file.need_convert:
             files_to_convert.append(v_file)

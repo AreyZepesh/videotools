@@ -5,6 +5,8 @@ from pathlib import Path
 from dataclasses import dataclass, field, asdict, replace
 from typing import Literal
 
+from rich import print as rprint
+
 @dataclass
 class Config():
     input_dir: Path|str|None = field( default_factory=lambda: Path(__file__).parent.absolute() )

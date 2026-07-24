@@ -1,8 +1,13 @@
 from common import (
     subprocess, json, Path,
-    run_subprocess, Config
+    run_subprocess, Config,
+    rprint,
     )
+from mediainfo import SubtitleInfo
 
+class OutputOptions:
+    def __init__(self):
+        pass
 class FFmpegCmdBuilder:
     def __init__(self, cfg: Config, only_CPU: bool = False):
         self.cfg = cfg
@@ -11,12 +16,13 @@ class FFmpegCmdBuilder:
         self._global_options = []
         self._input_options = []
         # self.input_path
-        self._output_options = []
+        self._output_map_options = []
+        self._output_codec_options = []
         # self.output_path
 
-        self.extra_global_options = []
-        self.extra_input_options = []
-        self.extra_output_options = []
+        # self.extra_global_options = []
+        # self.extra_input_options = []
+        # self.extra_output_options = []
 
         self.use_nvidia = False
         if not only_CPU and cfg.check_nvidia:
@@ -52,15 +58,17 @@ class FFmpegCmdBuilder:
         self._input_options += _input_args
 
     def _build_output_options(self):
-        _output_options = []
-        if self.cfg.exclude_subtitles:
-            _output_options += ["-map", "0", "-sn", "-c", "copy"]
-            # _output_options += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
-        else:
-            _output_options += ["-map", "0", "-c", "copy"]
+        # if self.cfg.exclude_subtitles:
+        #     # _output_options += ["-map", "0", "-sn"]
+        #     _output_options += ["-map", "0:v", "-map", "0:a"]
+        # else:
+        #     _output_options += ["-map", "0"]
+        self._output_map_options += ["-map", "0:v", "-map", "0:a"]
+
+        _output_codec_options = ["-c", "copy"]
         # NVIDIA 
         if self.use_nvidia:
-            _output_options += [
+            _output_codec_options += [
                             "-c:v", "h264_nvenc",     
                             '-preset', 'p5',
                             '-rc', 'vbr',
@@ -68,39 +76,68 @@ class FFmpegCmdBuilder:
                             "-b:v", "0",
                                 ]
             if self.scale:
-                _output_options += ["-vf", f'scale_cuda={self.scale}:format=nv12']
+                _output_codec_options += ["-vf", f'scale_cuda={self.scale}:format=nv12']
         # CPU
         else:
-            _output_options += [
+            _output_codec_options += [
                         "-c:v", "libx264",
                         '-preset', 'medium',
                         '-crf', '22',
                                 ]
             if self.scale:
-                _output_options += ["-vf", f'scale={self.scale}']
+                _output_codec_options += ["-vf", f'scale={self.scale}']
         
         # не для scale на nvidia, так как там параметр формата уже указан и будет конфликт
         if not (self.use_nvidia and self.scale):
-            _output_options += ["-pix_fmt", "yuv420p"]
+            _output_codec_options += ["-pix_fmt", "yuv420p"]
 
-        self._output_options += _output_options
+        self._output_codec_options += _output_codec_options
 
-    def build(self, input_path: Path|str, output_path: Path|str) -> list[str]:
+    def build(self, 
+              input_path: Path|str, 
+              output_path: Path|str,
+              selected_sub_indices: list[int] | None = None,
+              subtitle_extracts: list[SubtitleInfo] | None = None,
+              ) -> list[str]:
+        """Создание команды ffmpeg. \n
+        input_path: input path \n
+        output_path: output path
+        selected_sub_indices: Список с индексами субтитров, которые нужно сохранить в видеофайле. Если пуст - сохраняются все субтитры \n
+        subtitle_extracts: информация о субтитрах, для сохранения отдельными файлами \n
+        """
         # NOTE: нужно ли еще одно преобразование в Path и проверку существования? ffmpeg и сам может отбросить
         input_path = Path(input_path).absolute()
         if not input_path.exists():
             raise FileNotFoundError(f"Файл не существует {input_path}")
         output_path = Path(output_path).absolute()
 
-        args = [self.ffmpeg_path]
+        args = [str(self.ffmpeg_path)]
         args += self._global_options
-        args += self.extra_global_options
+        # args += self.extra_global_options
         args += self._input_options
-        args += self.extra_input_options
+        # args += self.extra_input_options
         args += ["-i", str(input_path)]
-        args += self._output_options
-        args += self.extra_output_options
+
+        args += self._output_map_options
+        if not self.cfg.exclude_subtitles:
+            if selected_sub_indices:
+                for idx in selected_sub_indices:
+                    args += ["-map", f"0:s:{idx}"]
+            else:
+                args += ["-map", "0:s"]
+
+        args += self._output_codec_options
+
+        # args += self.extra_output_options
         args += [str(output_path)]
+
+        if subtitle_extracts:
+            for sub in subtitle_extracts:
+                
+                # TODO: в mediainfo собирать?
+                args += ["-map", f"0:s:{sub.index}", "-c:s", sub.codec, sub.out_path]
+                pass
+
         return args
 
     @staticmethod
@@ -136,67 +173,6 @@ def is_nvidia_supported(cfg: Config):
         encoders = nv_codec.get('encoders')
         return bool(encoders and 'h264_nvenc' in encoders and nv_codec.get('decoders'))
     
-
-def get_ffmpeg_kwargs(cfg: Config) -> dict[str, list[str]]:
-    # # build_ffmpeg_options
-    # nvidia = False
-    # if cfg.check_nvidia:
-    #     nvidia = is_nvidia_supported(cfg)
-    
-    # scale = None
-    # if cfg.width or cfg.height:
-    #     scale = f'{cfg.width if cfg.width else "-2"}:{cfg.height if cfg.height else "-2"}'
-
-    # kwargs = {
-    #     'ffmpeg_path': [cfg.ffmpeg_path],
-    #     'global_options': [],
-    #     'input_options': [],
-    #     # -i input,
-    #     'output_options': [],
-    #     # output
-    #     }
-    # kwargs['global_options'] += ['-y', '-hide_banner', 
-    #                             #  '-loglevel', 'level+datetime',
-    #                             #  '-loglevel', 'warning',
-    #                              ]
-    # kwargs['input_options'] += []
-    # if cfg.exclude_subtitles:
-    #     kwargs['output_options'] += ["-map", "0:v", "-map", "0:a", "-c", "copy"]
-    # else:
-    #     kwargs['output_options'] += ["-map", "0", "-c", "copy"]
-
-    # if nvidia:
-    #     kwargs['input_options'] += ['-hwaccel', 'cuda']
-    #     kwargs['output_options'] += ["-c:v", "h264_nvenc",     
-    #                                 '-preset', 'p5',
-    #                                 '-rc', 'vbr',
-    #                                 '-cq', '23', 
-    #                                 "-b:v", "0"]
-    #     if scale:
-    #         kwargs['input_options'] += ['-hwaccel_output_format', 'cuda']
-    #         kwargs['output_options'] += ["-vf", f'scale_cuda={scale}:format=nv12']
-
-    # else:
-    #     # kwargs['input_options'] += ['-hwaccel', 'auto']
-    #     kwargs['output_options'] += ["-c:v", "libx264",
-    #                                 '-preset', 'medium',
-    #                                 '-crf', '22',
-    #                                 ]
-    #     if scale:
-    #         kwargs['output_options'] += ["-vf", f'scale={scale}']
-
-    # if not (nvidia and scale):
-    #     kwargs['output_options'] += ["-pix_fmt", "yuv420p"]
-    # # kwargs['input_options'] += ['-fflags', '+genpts'] # создание новых timestamp’ов вместо старых
-    # # kwargs['output_options'] += ['-progress','pipe:1', '-nostats'] # выводить прогресс строками, а не динамикой.
-
-    # # old parameters
-    # # c  = [f'-hwaccel cuda -hwaccel_output_format cuda -i "{Path('input_path')}" -c:v h264_nvenc -b:v 4500K -vf "scale_cuda=1280:720" "{Path('output_path')}"']
-    # # rc = [f'-hwaccel auto  -i "{Path('input_path')}" -b:v 4500K -s 1280x720 "{Path('output_path')}"']
-
-    # return kwargs
-    pass
-
 def main():
     pass
 
