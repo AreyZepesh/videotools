@@ -22,7 +22,10 @@ class Config():
     height: int|None = field(default=None)
     find_10bit: bool = field(default=True)
     check_nvidia: bool = field(default=True)
+
+    use_only_basic_subtitles: bool = field(default=False)
     exclude_subtitles: bool = field(default=False)
+    extract_subtitles: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))
     

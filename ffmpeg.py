@@ -3,11 +3,8 @@ from common import (
     run_subprocess, Config,
     rprint,
     )
-from mediainfo import SubtitleInfo
+from mediainfo import SubtitleInfo, MediaFileInfo
 
-class OutputOptions:
-    def __init__(self):
-        pass
 class FFmpegCmdBuilder:
     def __init__(self, cfg: Config, only_CPU: bool = False):
         self.cfg = cfg
@@ -63,7 +60,8 @@ class FFmpegCmdBuilder:
         #     _output_options += ["-map", "0:v", "-map", "0:a"]
         # else:
         #     _output_options += ["-map", "0"]
-        self._output_map_options += ["-map", "0:v", "-map", "0:a"]
+        self._output_map_options += ["-map", "0:v:0", "-map", "0:a"]
+        # NOTE в выходной файл попадет только первый видеопоток!
 
         _output_codec_options = ["-c", "copy"]
         # NVIDIA 
@@ -93,7 +91,7 @@ class FFmpegCmdBuilder:
 
         self._output_codec_options += _output_codec_options
 
-    def build(self, 
+    def _old_build(self, 
               input_path: Path|str, 
               output_path: Path|str,
               selected_sub_indices: list[int] | None = None,
@@ -131,12 +129,49 @@ class FFmpegCmdBuilder:
         # args += self.extra_output_options
         args += [str(output_path)]
 
-        if subtitle_extracts:
+
+        if self.cfg.extract_subtitles and subtitle_extracts:
             for sub in subtitle_extracts:
-                
-                # TODO: в mediainfo собирать?
+                if self.cfg.use_only_basic_subtitles and not sub.is_basic():
+                    # Если опция говорит извлекать только базовые субтитры, то пропускаем не базовые
+                    continue
                 args += ["-map", f"0:s:{sub.index}", "-c:s", sub.codec, sub.out_path]
-                pass
+
+        return args
+    
+    def build(self, 
+              input_video_file: MediaFileInfo,
+              ) -> list[str]:
+        """Создание команды ffmpeg. \n
+        """
+        if not input_video_file.path.exists():
+            raise FileNotFoundError(f"Файл не существует {input_video_file.path}")
+
+        args = [str(self.ffmpeg_path)]
+        args += self._global_options
+        args += self._input_options
+        args += ["-i", str(input_video_file.path)]
+
+        args += self._output_map_options
+        if not self.cfg.exclude_subtitles and input_video_file.subtitles:
+            if self.cfg.use_only_basic_subtitles:
+                for sub in input_video_file.subtitles:
+                    if sub.is_basic():
+                        args += ["-map", f"0:s:{sub.index}"]
+            else:
+                args += ["-map", "0:s"]
+
+        args += self._output_codec_options
+
+        args += [str(input_video_file.output_path)]
+
+
+        if self.cfg.extract_subtitles and input_video_file.subtitles:
+            for sub in input_video_file.subtitles:
+                if self.cfg.use_only_basic_subtitles and not sub.is_basic():
+                    # Если опция говорит 'только базовые субтитры', то пропускаем не базовые
+                    continue
+                args += ["-map", f"0:s:{sub.index}", "-c:s", sub.codec, sub.out_path]
 
         return args
 

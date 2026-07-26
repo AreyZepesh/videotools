@@ -18,6 +18,14 @@ class SubtitleInfo():
     suffix: str
     out_path: Path
 
+    def is_basic(self):
+        if self.is_default:
+            return True
+        for l in ['ru', 'RU']:
+            if l in self.language:
+                return True
+        return False
+
 
 class MediaFileInfo():
     def __init__(self, path: Path|str, cfg: Config):
@@ -29,11 +37,13 @@ class MediaFileInfo():
 
         all_tracks = self.get_all_info()
 
-        self.subtitles: list= self.get_simple_text_info(all_tracks.get("Text"))
-        self._text_need_convert: bool = True if len(self.subtitles) > 3 else False 
+        self.subtitles: list[SubtitleInfo] = self.get_simple_text_info(all_tracks.get("Text"))
+        self._text_need_convert: bool = True if len(self.subtitles) > 6 else False 
         #self.is_text_need_convert(all_tracks.get("Text"))
 
         self._video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
+        # if self._text_need_convert:
+        #     rprint(len(self.subtitles))
         self.need_convert: bool = self._video_need_convert or self._text_need_convert
 
     def __str__(self):
@@ -110,11 +120,7 @@ class MediaFileInfo():
                 "S_DVBSUB": (".sub", "dvbsub"),
                 }
         return d.get(codec)
-    
-
-    def is_text_need_convert(self, subtitle_tracks: list[dict]) -> bool:
-        return 
-    
+         
     def get_simple_text_info(self, subtitle_tracks: list[dict]) -> bool:
         subtitles = []
         if not subtitle_tracks:
@@ -122,23 +128,31 @@ class MediaFileInfo():
             # raise ValueError(f"Не найдено потоков субтитров: {self.path}")
         
         for track in subtitle_tracks:
-            codecID = track.get("CodecID")
-            suffix, codec = self._get_sub_suffix_and_codec(codecID)
-            # subtitles.append(dict(
-            subtitles.append(SubtitleInfo(
-                index = str_to_int(track.get("@typeorder"))-1,
-                is_default = True if track.get("Default") in ["Yes", "Да", "True", True] else False,
-                language = track.get("Language"),
-                title = track.get("Title"),
-                codecID = codecID,
-                codec = codec,
-                suffix = suffix,
-                out_path = Path(self.output_path.parent, self.output_path.stem+"_"+track.get("Language")+suffix),
-                ))
-            # print("ru" in track.get("Language") or "en" in track.get("Language"))
+            try:
+                index = str_to_int(track.get("@typeorder"))-1
+                codecID = track.get("CodecID")
+                suffix, codec = self._get_sub_suffix_and_codec(codecID)
+                # subtitles.append(dict(
+                subtitles.append(SubtitleInfo(
+                    index = index,
+                    is_default = True if track.get("Default") in ["Yes", "Да", "True", True] else False,
+                    language = track.get("Language"),
+                    title = track.get("Title"),
+                    codecID = codecID,
+                    codec = codec,
+                    suffix = suffix,
+                    out_path = Path(self.output_path.parent, self.output_path.stem+"."+track.get("Language")+str(index)+suffix),
+                    ))
+                # print("ru" in track.get("Language") or "en" in track.get("Language"))
+            except Exception as ex:
+                print(f"Ошибка в mediainfo.get_simple_text_info:")
+                print(ex)
+                print()
 
         # print(subtitles)
         return subtitles
+
+    
 
 def main():
     f = r"D:\Видео\_кинцо\Новое\Битва за битвой (2025) [One Battle After Another].mkv"

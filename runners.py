@@ -28,39 +28,35 @@ def _execut_convert_video(ffmpeg_args: list[str]):
     process = subprocess.run(ffmpeg_args)
     if process.returncode != 0:
         raise RuntimeError(f"Процесс завершился неверно")
-    pass
 
-def run_convert(input_file: MediaFileInfo, ff_cmd: FFmpegCmdBuilder, fallback_ff_cmd: FFmpegCmdBuilder):
+def run_convert(input_video_file: MediaFileInfo, ff_cmd: FFmpegCmdBuilder, fallback_ff_cmd: FFmpegCmdBuilder):
     # output_path = Path(input_file.parent, r"converted", input_file.name)
     # output_path = output_path.with_suffix('.mp4')
-    input_file.output_path.parent.mkdir(parents=True, exist_ok=True)
-    print(input_file)
+    input_video_file.output_path.parent.mkdir(parents=True, exist_ok=True)
+    print(input_video_file)
     try:
         _execut_convert_video(
-            ff_cmd.build(input_file.path, input_file.output_path)
+            # ff_cmd.build(input_video_file.path, input_video_file.output_path)
+            ff_cmd.build(input_video_file)
                       )
     except Exception as nvidia_ex:
         print(nvidia_ex)
         try:
             _execut_convert_video(
-                fallback_ff_cmd.build(input_file.path, input_file.output_path)
+                # fallback_ff_cmd.build(input_video_file.path, input_video_file.output_path)
+                fallback_ff_cmd.build(input_video_file)
                     )
         except Exception as fallback_ex:
             print(fallback_ex)
-            if input_file.output_path.exists():
+            if input_video_file.output_path.exists():
                 # os.remove(input_file.output_path)
-                input_file.output_path.unlink()
+                input_video_file.output_path.unlink()
             return
         
 def run_only_scan(dir_path, cfg: Config):
     data = scan_dir(dir_path, cfg=cfg)
-    lines = []
-    if not data:
-        lines.append("По заданным параметрам ничего не найдено")
-    else:
-        lines.append("По заданным параметрам найдено:")
-        lines.extend(data)
-    return lines
+    response = f"По заданным параметрам найдено: {len(data)}"
+    return (response, data)
 
 def run_scan_and_convert(dir_path, cfg: Config):
     data = scan_dir(dir_path, cfg=cfg)
@@ -71,31 +67,41 @@ def run_scan_and_convert(dir_path, cfg: Config):
     ff_cmd = FFmpegCmdBuilder(cfg)
     fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
     
-    for f_file in data:
-        run_convert(f_file, ff_cmd, fallback_ff_cmd)
+    for video_file in data:
+        run_convert(video_file, ff_cmd, fallback_ff_cmd)
     # TODO: запуск как с уже отсканированными данными, так и заново сканируя
 
 def run_from_cli():
     
     cfg = Config()
     cfg.load_cfg()
+    cfg.use_only_basic_subtitles = True
     cfg.exclude_subtitles = True
+    cfg.extract_subtitles = True
     # cfg.width = 1280
-    dir = r"D:\Видео\_маме\Кафедра (нужна конвертация)"
-    dir = r"D:\Видео\_маме"
+    # dir = r"D:\Видео\_маме\Кафедра (нужна конвертация)"
+    dir = r"D:\Видео\_test"
     cfg.input_dir = Path(dir)
-    # cfg.output_dir = Path(r"C:\1")
-    # cfg.output_mode = "tree"
-    cfg.output_mode = "subfolder"
+    cfg.output_dir = Path(r"D:\Видео\_converted")
+    # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
 
-    # lines = run_only_scan(dir, cfg)
-    # for line in lines[1:]:
+    # ff_cmd = FFmpegCmdBuilder(cfg)
+    # response, lines = run_only_scan(dir, cfg)
+    # rprint(response)
+    # for line in lines:
     #     # print(type(line))
-    #     print(line)
-
-        # print(cfg.build_output_path(line))
+    #     rprint(ff_cmd.printable
+    #         (
+    #         ff_cmd.build(
+    #             line
+    #             )
+    #             )
+    #            )
+    #     rprint()
+        # rprint(cfg.build_output_path(line))
     # print()
+
     run_scan_and_convert(dir, cfg)
 
 # OTHER BLOCK
