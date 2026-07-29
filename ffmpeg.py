@@ -14,6 +14,7 @@ class FFmpegCmdBuilder:
         self._input_options = []
         # self.input_path
         self._output_map_options = []
+        self._output_copy_options = []
         self._output_codec_options = []
         # self.output_path
 
@@ -63,8 +64,9 @@ class FFmpegCmdBuilder:
         self._output_map_options += ["-map", "0:v:0", "-map", "0:a"]
         # NOTE в выходной файл попадет только первый видеопоток!
 
-        _output_codec_options = ["-c", "copy"]
+        self._output_copy_options = ["-c", "copy"]
         # NVIDIA 
+        _output_codec_options = []
         if self.use_nvidia:
             _output_codec_options += [
                             "-c:v", "h264_nvenc",     
@@ -153,20 +155,25 @@ class FFmpegCmdBuilder:
         args += ["-i", str(input_video_file.path)]
 
         args += self._output_map_options
-        if not self.cfg.exclude_subtitles and input_video_file.subtitles:
+
+        # NOTE: is_mkv автоматизирует исключение субтитров из файла и извелечение их рядом
+        is_mkv = input_video_file.output_path.suffix == ".mkv"
+        if not self.cfg.exclude_subtitles and is_mkv and input_video_file.subtitles:
             if self.cfg.use_only_basic_subtitles:
                 for sub in input_video_file.subtitles:
                     if sub.is_basic():
                         args += ["-map", f"0:s:{sub.index}"]
             else:
                 args += ["-map", "0:s"]
-
-        args += self._output_codec_options
+        args += self._output_copy_options
+        # NOTE если видеопоток НЕ нужно конвертировать, будет просто скопирован как есть: 
+        if input_video_file.video_need_convert:
+            args += self._output_codec_options
 
         args += [str(input_video_file.output_path)]
 
 
-        if self.cfg.extract_subtitles and input_video_file.subtitles:
+        if (self.cfg.extract_subtitles or not is_mkv) and input_video_file.subtitles:
             for sub in input_video_file.subtitles:
                 if self.cfg.use_only_basic_subtitles and not sub.is_basic():
                     # Если опция говорит 'только базовые субтитры', то пропускаем не базовые

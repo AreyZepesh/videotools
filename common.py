@@ -7,6 +7,13 @@ from typing import Literal
 
 from rich import print as rprint
 
+DEFAULT_VIDEO_SUFFIXES = [
+    ".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v',
+    ".webm", ".flv", ".wmv", ".mpg", ".mpeg",
+    ".m2ts", ".mts", ".vob", ".3gp", ".3g2",
+    ".ogv", ".rm", ".rmvb", ".asf", ".divx",
+    ".f4v", ".mxf", ".y4m", ".nut", ".dv",
+    ]
 @dataclass
 class Config():
     input_dir: Path|str|None = field( default_factory=lambda: Path(__file__).parent.absolute() )
@@ -16,7 +23,8 @@ class Config():
     ffmpeg_path: Path|str|None = field(default=None)
     mediainfo_path: Path|str|None = field(default=None)
 
-    video_suffixes: list[str] = field(default_factory=lambda: [".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v'])
+    video_suffixes: list[str] = field( default_factory=lambda: DEFAULT_VIDEO_SUFFIXES[:5] )
+    output_file_suffix: str|None = field(default=None)
 
     width: int|None = field(default=None)
     height: int|None = field(default=None)
@@ -30,6 +38,12 @@ class Config():
     cfg_file_path: str = field(default=Path('./config.json'))
     
     def __setattr__(self, name, value):
+        if name =='output_file_suffix':
+            if value:
+                if value[0] != ".":
+                    value = "."+value
+                if value not in DEFAULT_VIDEO_SUFFIXES:
+                    raise ValueError(f"Неизвестный формат видео: '{value}', возможно не предусмотрен при разработке")
         if name =='output_mode':
             if value not in ["tree", "subfolder"]:
                 raise ValueError('output_mode может быть только "tree" или "subfolder"')
@@ -99,14 +113,22 @@ class Config():
     def build_output_path(self, file_path: Path|str):
         """Заменяет корень в пути, сохраняя структуру дерева"""
         fp = Path(file_path)
+        output_path = None
         relative = fp.relative_to(self.input_dir)
         if self.output_mode == "subfolder":
-            return Path(fp.parent,"_converted", fp.name).absolute()
-
-        if self.output_mode == "tree":
+            output_path = Path(fp.parent,"_converted", fp.name).absolute()
+        elif self.output_mode == "tree":
             if self.output_dir is not None:
-                return Path(self.output_dir, relative).absolute()
-            return Path(self.input_dir.parent, f"{self.input_dir.name}_converted", relative).absolute()
+                output_path = Path(self.output_dir, relative).absolute()
+            else:
+                output_path = Path(self.input_dir.parent, f"{self.input_dir.name}_converted", relative).absolute()
+        else:
+            raise ValueError("Output mode must be 'subfolder' or 'tree' only")
+
+        if self.output_file_suffix:
+            output_path = output_path.with_suffix(self.output_file_suffix)
+        return output_path
+        
 
 
 # SUBPROCESS BLOCK

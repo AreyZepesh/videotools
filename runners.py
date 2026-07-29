@@ -76,13 +76,14 @@ def run_from_cli():
     cfg = Config()
     cfg.load_cfg()
     cfg.use_only_basic_subtitles = True
-    cfg.exclude_subtitles = True
-    cfg.extract_subtitles = True
+    # cfg.exclude_subtitles = True
+    # cfg.extract_subtitles = True
     # cfg.width = 1280
     # dir = r"D:\Видео\_маме\Кафедра (нужна конвертация)"
     dir = r"D:\Видео\_test"
     cfg.input_dir = Path(dir)
     cfg.output_dir = Path(r"D:\Видео\_converted")
+    cfg.output_file_suffix = 'mp4'
     # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
 
@@ -90,15 +91,18 @@ def run_from_cli():
     # response, lines = run_only_scan(dir, cfg)
     # rprint(response)
     # for line in lines:
-    #     # print(type(line))
-    #     rprint(ff_cmd.printable
+    # #     # print(type(line))
+    #     print(
+    # ff_cmd.printable
     #         (
     #         ff_cmd.build(
     #             line
     #             )
     #             )
     #            )
-    #     rprint()
+    #     print(line.need_convert)
+    #     print(line.video_need_convert)
+    #     print(line.text_need_convert)
         # rprint(cfg.build_output_path(line))
     # print()
 

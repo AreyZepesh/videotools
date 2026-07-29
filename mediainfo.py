@@ -38,13 +38,13 @@ class MediaFileInfo():
         all_tracks = self.get_all_info()
 
         self.subtitles: list[SubtitleInfo] = self.get_simple_text_info(all_tracks.get("Text"))
-        self._text_need_convert: bool = True if len(self.subtitles) > 6 else False 
+        self.text_need_convert: bool = True if len(self.subtitles) > 6 else False 
         #self.is_text_need_convert(all_tracks.get("Text"))
 
-        self._video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
+        self.video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
         # if self._text_need_convert:
         #     rprint(len(self.subtitles))
-        self.need_convert: bool = self._video_need_convert or self._text_need_convert
+        self.need_convert: bool = self.video_need_convert or self.text_need_convert
 
     def __str__(self):
         return f'{self.path}   ->   {self.output_path}'
