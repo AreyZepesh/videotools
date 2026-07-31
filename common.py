@@ -1,4 +1,4 @@
-import subprocess
+﻿import subprocess
 import json
 import os
 from pathlib import Path
@@ -53,20 +53,31 @@ class Config():
 
     def save_cfg(self):
         config = dict(
-            ffmpeg = self.ffmpeg_path,
-            mediainfo = self.mediainfo_path,
+            ffmpeg = str(self.ffmpeg_path),
+            mediainfo = str(self.mediainfo_path),
             )
         with open(self.cfg_file_path, 'w', encoding='utf-8-sig') as file:
-            json.dump(config, file, indent=0)
-            # json.dump(asdict(self), file, indent=0)
+            # json.dump(config, file, indent=0)
+            json.dump(self.get_dict(from_save=True), file, indent=0)
             
     def load_cfg(self):
+        cfg_loaded = False
         if self.cfg_file_path.exists():
-            with open(self.cfg_file_path, 'r', encoding='utf-8-sig') as file:
-                config = json.load(file)
-                self.ffmpeg_path = config.get("ffmpeg")
-                self.mediainfo_path = config.get("mediainfo")
-        else:
+            try:
+                with open(self.cfg_file_path, 'r', encoding='utf-8-sig') as file:
+                    content = file.read()
+                    if len(content) != 0:
+                        config = json.loads(content)
+                        if config:
+                            for k, v in config.items():
+                                self.__setattr__(k, v)
+                            # self.ffmpeg_path = config.get("ffmpeg")
+                            # self.mediainfo_path = config.get("mediainfo")
+                            cfg_loaded = True
+            except Exception as load_ex:
+                print(load_ex)
+                cfg_loaded = False
+        if not cfg_loaded:
             self.find_exes()
             self.save_cfg()
             pass
@@ -104,8 +115,15 @@ class Config():
         except:
             return False
 
-    def get_dict(self):
-        return asdict(self)
+    def get_dict(self, from_save = False):
+        data = asdict(self)
+        if from_save:
+            data.pop('input_dir')
+            data.pop('cfg_file_path')
+        for k, v in data.items():
+            if isinstance(v, Path):
+                data[k] = str(v)
+        return data
     
     def get_replaced_copy(self, **changes):
         return replace(self, **changes)
@@ -142,11 +160,11 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         )
 
 def str_to_int(value):
-    if not isinstance(value, (int, float)):
+    if value and not isinstance(value, (int, float)):
         # try:
             value = int("".join(c for c in value if  c.isdecimal()))
         # except:
-        #     value = None
+        #     value = -1
     return value
 
 if __name__ == "__main__":

@@ -15,10 +15,13 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
             continue
         if file_path.suffix.lower() not in cfg.video_suffixes:
             continue
-        
-        v_file = MediaFileInfo(file_path, cfg)
-        if v_file.need_convert:
-            files_to_convert.append(v_file)
+        try:
+            v_file = MediaFileInfo(file_path, cfg)
+            if v_file.need_convert:
+                files_to_convert.append(v_file)
+        except Exception as scan_ex:
+            print(scan_ex)
+            continue
 
     return files_to_convert
 
@@ -71,7 +74,7 @@ def run_scan_and_convert(dir_path, cfg: Config):
         run_convert(video_file, ff_cmd, fallback_ff_cmd)
     # TODO: запуск как с уже отсканированными данными, так и заново сканируя
 
-def run_from_cli():
+def run_test():
     
     cfg = Config()
     cfg.load_cfg()
@@ -110,14 +113,8 @@ def run_from_cli():
 
 # OTHER BLOCK
 
-def test_cli():
-    done = False
-    while done:
-        
-        done = True
- 
 def main():
-    run_from_cli()
+    run_test()
     pass
 
 if __name__ == "__main__":

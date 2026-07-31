@@ -1,4 +1,4 @@
-from common import (
+﻿from common import (
     subprocess, json, Path, 
     dataclass, field,
     run_subprocess, Config, str_to_int,
@@ -84,18 +84,21 @@ class MediaFileInfo():
         
         needs_convert = False
 
-        try:
-            if len(video_tracks) > 1:
-                raise ValueError(f"Более одного потока видео в файле: {self.path}")
-            bit_depth = video_tracks[0].get("BitDepth")
-            bit_depth = str_to_int(bit_depth)
-            width = video_tracks[0].get("Width")
-            width = str_to_int(width)
-            height = video_tracks[0].get("Height")
-            height = str_to_int(height)
-        except Exception as e:
-            print(f"Ошибка при чтении файла, пропускаем: {self.path}")
-            print(e)
+        # try:
+        if len(video_tracks) > 1:
+            # raise ValueError(f"Более одного потока видео в файле: {self.path}")
+            print(f"ВНИМАНИЕ! Более одного потока видео в файле: {self.path}.\
+                  \n   Видеопотоки кроме первого будут проигнорированы")
+        bit_depth = video_tracks[0].get("BitDepth")
+        bit_depth = str_to_int(bit_depth)
+        width = video_tracks[0].get("Width")
+        width = str_to_int(width)
+        height = video_tracks[0].get("Height")
+        height = str_to_int(height)
+        # except Exception as e:
+        #     print(f"Ошибка при чтении файла, пропускаем: {self.path}")
+        #     print(e)
+        #     raise e
         
         if self.cfg.find_10bit:
             if bit_depth == 10:
@@ -136,7 +139,7 @@ class MediaFileInfo():
                 subtitles.append(SubtitleInfo(
                     index = index,
                     is_default = True if track.get("Default") in ["Yes", "Да", "True", True] else False,
-                    language = track.get("Language"),
+                    language = track.get("Language", ''),
                     title = track.get("Title"),
                     codecID = codecID,
                     codec = codec,
@@ -145,9 +148,9 @@ class MediaFileInfo():
                     ))
                 # print("ru" in track.get("Language") or "en" in track.get("Language"))
             except Exception as ex:
-                print(f"Ошибка в mediainfo.get_simple_text_info:")
+                print(f"Ошибка в mediainfo.get_simple_text_info: {self.path} \n {track}")
                 print(ex)
-                print()
+                print() # TODO: logs
 
         # print(subtitles)
         return subtitles
