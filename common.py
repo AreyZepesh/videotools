@@ -36,6 +36,7 @@ class Config():
     extract_subtitles: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))
+    _exe_pathes_is_check: bool = field(default=False)  
     
     def __setattr__(self, name, value):
         if name =='output_file_suffix':
@@ -70,29 +71,40 @@ class Config():
                         config = json.loads(content)
                         if config:
                             for k, v in config.items():
-                                self.__setattr__(k, v)
-                            # self.ffmpeg_path = config.get("ffmpeg")
-                            # self.mediainfo_path = config.get("mediainfo")
+                                if k in self.__dataclass_fields__:
+                                    self.__setattr__(k, v)
                             cfg_loaded = True
+                            
             except Exception as load_ex:
                 print(load_ex)
                 cfg_loaded = False
-        if not cfg_loaded:
+        if cfg_loaded:
+            self.check_exes()
+        # if not cfg_loaded or not self.ffmpeg_path or not self.mediainfo_path:
+        if not cfg_loaded or not self._exe_pathes_is_check:
             self.find_exes()
             self.save_cfg()
             pass
         # self.__post_init__()
 
     def find_exes(self):
+        if self.ffmpeg_path and self.mediainfo_path:
+            return
         for path in Path('.').rglob('*.exe'):
-            if self.ffmpeg_path and self.mediainfo_path:
-                break
             if not self.ffmpeg_path and path.name.lower() == 'ffmpeg.exe':
                 if self._is_ffmeg(path):
                     self.ffmpeg_path = str(path.absolute())
             if not self.mediainfo_path and path.name.lower() == 'mediainfo.exe':
                 if self._is_mediainfo(path):
                     self.mediainfo_path = str(path.absolute())
+        if self.ffmpeg_path and self.mediainfo_path:
+            self._exe_pathes_is_check = True
+
+    def check_exes(self) -> bool:
+        if self.ffmpeg_path and self.mediainfo_path and not self._exe_pathes_is_check:
+            self._exe_pathes_is_check = self._is_ffmeg(self.ffmpeg_path) and self._is_mediainfo(self.mediainfo_path)
+        return self._exe_pathes_is_check
+            
 
     def _is_ffmeg(self, ffmpeg_path: Path|str) -> bool:
         ffmpeg_path = Path(ffmpeg_path)
@@ -118,8 +130,8 @@ class Config():
     def get_dict(self, from_save = False):
         data = asdict(self)
         if from_save:
-            data.pop('input_dir')
-            data.pop('cfg_file_path')
+            data.pop('input_dir', None)
+            data.pop('cfg_file_path', None)
         for k, v in data.items():
             if isinstance(v, Path):
                 data[k] = str(v)
@@ -159,13 +171,14 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         **kwargs
         )
 
-def str_to_int(value):
-    if value and not isinstance(value, (int, float)):
-        # try:
-            value = int("".join(c for c in value if  c.isdecimal()))
-        # except:
-        #     value = -1
-    return value
+def str_to_int(value, default=None):
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+
+    digits = "".join(c for c in str(value or "") if c.isdecimal())
+    return int(digits) if digits else default
 
 if __name__ == "__main__":
     # print(str_to_int("s"))

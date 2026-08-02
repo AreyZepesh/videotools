@@ -91,9 +91,9 @@ class MediaFileInfo():
                   \n   Видеопотоки кроме первого будут проигнорированы")
         bit_depth = video_tracks[0].get("BitDepth")
         bit_depth = str_to_int(bit_depth)
-        width = video_tracks[0].get("Width")
+        width = video_tracks[0].get("Width", 0)
         width = str_to_int(width)
-        height = video_tracks[0].get("Height")
+        height = video_tracks[0].get("Height", 0)
         height = str_to_int(height)
         # except Exception as e:
         #     print(f"Ошибка при чтении файла, пропускаем: {self.path}")
@@ -106,7 +106,9 @@ class MediaFileInfo():
             elif bit_depth != 8:
                 print(f"{self.path}: {bit_depth=}")
 
-        if (self.cfg.width and width > self.cfg.width) or (self.cfg.height and height > self.cfg.height):
+        _width  = self.cfg.width  and width  and width  > self.cfg.width
+        _height = self.cfg.height and height and height > self.cfg.height
+        if _width or _height:
             needs_convert = True
 
         return needs_convert
@@ -135,16 +137,16 @@ class MediaFileInfo():
                 index = str_to_int(track.get("@typeorder"))-1
                 codecID = track.get("CodecID")
                 suffix, codec = self._get_sub_suffix_and_codec(codecID)
-                # subtitles.append(dict(
+                language = track.get("Language") or ""
                 subtitles.append(SubtitleInfo(
                     index = index,
                     is_default = True if track.get("Default") in ["Yes", "Да", "True", True] else False,
-                    language = track.get("Language", ''),
+                    language = language,
                     title = track.get("Title"),
                     codecID = codecID,
                     codec = codec,
                     suffix = suffix,
-                    out_path = Path(self.output_path.parent, self.output_path.stem+"."+track.get("Language")+str(index)+suffix),
+                    out_path = Path(self.output_path.parent, self.output_path.stem+"."+language+str(index)+suffix),
                     ))
                 # print("ru" in track.get("Language") or "en" in track.get("Language"))
             except Exception as ex:
@@ -158,9 +160,9 @@ class MediaFileInfo():
     
 
 def main():
-    f = r"D:\Видео\_кинцо\Новое\Битва за битвой (2025) [One Battle After Another].mkv"
-    f = r"D:\Видео\_маме\Unchosen_Отречённая.S01.1080p.WEB-DLRip.HEVC.H265.RUS.ENG.MultiSub\Unchosen_Отречённая.S01E01.1080p.WEB-DLRip.HEVC.H265.RUS.ENG.MultiSub.mkv"
-    f = r"D:\Видео\_маме\Кафедра (нужна конвертация)\01. Кафедра.mkv"
+    # f = r"D:\Видео\_кинцо\Новое\Битва за битвой (2025) [One Battle After Another].mkv"
+    # f = r"D:\Видео\_маме\Отречённая\Unchosen_Отречённая.S01E01.1080p.WEB-DLRip.HEVC.H265.RUS.ENG.MultiSub.mkv"
+    f = r"D:\Видео\_маме\Кафедра\01. Кафедра.mkv"
     cfg = Config(Path(f).parent)
     cfg.load_cfg()
     data = MediaFileInfo(f, cfg)
