@@ -1,12 +1,16 @@
 ﻿from common import (
     subprocess, json, Path,
     run_subprocess, Config,
+    TextIO, Iterable,
     rprint,
     )
 
-from mediainfo import MediaFileInfo, SubtitleInfo
+from mediainfo import MediaFileInfo
 from ffmpeg import FFmpegCmdBuilder
 
+from rich.progress import Progress, TextColumn, Task, TimeElapsedColumn, SpinnerColumn
+from rich.pretty import pretty_repr
+import threading
 
 def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
     files_to_convert = []
@@ -27,52 +31,104 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
 
 
 # RUN BLOCK
-def _execut_convert_video(ffmpeg_args: list[str]):
+def _execute_convert_video_(ffmpeg_args: list[str]):
     process = subprocess.run(ffmpeg_args)
     if process.returncode != 0:
         raise RuntimeError(f"Процесс завершился неверно")
+    
+def read_ffmpeg_progress(stdout: Iterable[str]|TextIO):
+    progress = {}
+    for line in stdout:
+        line = line.strip()
+        if not line or "=" not in line:
+            continue
 
-def run_convert(input_video_file: MediaFileInfo, ff_cmd: FFmpegCmdBuilder, fallback_ff_cmd: FFmpegCmdBuilder):
-    # output_path = Path(input_file.parent, r"converted", input_file.name)
-    # output_path = output_path.with_suffix('.mp4')
+        key, _, value = line.partition("=")
+        progress[key] = value
+
+        if key == "progress":
+            yield progress
+            progress = {}
+
+def read_stderr(stderr, stderr_pipe: list[str]):
+    for line in stderr:
+        line = line.rstrip()
+        if line:
+            stderr_pipe.append(line)
+        
+def _execute_convert_video(ffmpeg_args: list[str], on_progress = None):
+    with subprocess.Popen(ffmpeg_args,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        # stderr=None,
+                        text=True,
+                        encoding="utf-8-sig",) as process:
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"), 
+            TimeElapsedColumn(),
+
+            ) as progress:
+            task_id_err = progress.add_task("Warning/Error:", total=None)
+            task_id_out = progress.add_task("Convert: starting...", total=None)
+            stderr_pipe = []
+            stderr_thread = threading.Thread(
+                target=read_stderr,
+                args=(process.stderr, stderr_pipe),
+                daemon=True, )
+            
+            stderr_thread.start()
+            for progress_data in read_ffmpeg_progress(process.stdout):
+                progress.update(task_id_err, description=pretty_repr(stderr_pipe))
+                progress.update(task_id_out, description=pretty_repr(progress_data))
+
+            returncode = process.wait()
+            print()
+            stderr = process.stderr.read()
+            print(stderr)
+
+            if returncode != 0:
+                raise RuntimeError(f"ffmpeg завершился с ошибкой: {returncode}\n{stderr}")
+
+
+def run_single_conversion(input_video_file: MediaFileInfo, ff_cmd: FFmpegCmdBuilder, fallback_ff_cmd: FFmpegCmdBuilder):
     input_video_file.output_path.parent.mkdir(parents=True, exist_ok=True)
     print(input_video_file)
     try:
-        _execut_convert_video(
-            # ff_cmd.build(input_video_file.path, input_video_file.output_path)
+        _execute_convert_video(
             ff_cmd.build(input_video_file)
                       )
     except Exception as nvidia_ex:
         print(nvidia_ex)
         try:
-            _execut_convert_video(
-                # fallback_ff_cmd.build(input_video_file.path, input_video_file.output_path)
+            _execute_convert_video(
                 fallback_ff_cmd.build(input_video_file)
                     )
         except Exception as fallback_ex:
             print(fallback_ex)
             if input_video_file.output_path.exists():
-                # os.remove(input_file.output_path)
                 input_video_file.output_path.unlink()
             return
         
 def run_only_scan(dir_path, cfg: Config):
-    data = scan_dir(dir_path, cfg=cfg)
-    response = f"По заданным параметрам найдено: {len(data)}"
-    return (response, data)
+    cfg.found_video_files = scan_dir(dir_path, cfg=cfg)
 
-def run_scan_and_convert(dir_path, cfg: Config):
-    data = scan_dir(dir_path, cfg=cfg)
+def run_mass_conversion(dir_path, cfg: Config):
+    if cfg.need_rescan or not cfg.found_video_files:
+        rprint("Список пуст, запуск поиска")
+        cfg.found_video_files = scan_dir(dir_path, cfg=cfg)
 
-    if not data:
+    if not cfg.found_video_files:
         return
+    
+    rprint(f"По заданным параметрам найдено: {len(cfg.found_video_files)}")
 
     ff_cmd = FFmpegCmdBuilder(cfg)
     fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
     
-    for video_file in data:
-        run_convert(video_file, ff_cmd, fallback_ff_cmd)
-    # TODO: запуск как с уже отсканированными данными, так и заново сканируя
+    for video_file in cfg.found_video_files:
+        run_single_conversion(video_file, ff_cmd, fallback_ff_cmd)
 
 def run_test():
     
@@ -91,25 +147,12 @@ def run_test():
     # dir = r"G:\\"
 
     # ff_cmd = FFmpegCmdBuilder(cfg)
-    # response, lines = run_only_scan(dir, cfg)
-    # rprint(response)
-    # for line in lines:
-    # #     # print(type(line))
-    #     print(
-    # ff_cmd.printable
-    #         (
-    #         ff_cmd.build(
-    #             line
-    #             )
-    #             )
-    #            )
-    #     print(line.need_convert)
-    #     print(line.video_need_convert)
-    #     print(line.text_need_convert)
-        # rprint(cfg.build_output_path(line))
-    # print()
+    # run_only_scan(dir, cfg)
+    # for line in cfg.found_video_files:
+    #     print(ff_cmd.printable(ff_cmd.build(line)))
 
-    run_scan_and_convert(dir, cfg)
+
+    run_mass_conversion(dir, cfg)
 
 # OTHER BLOCK
 

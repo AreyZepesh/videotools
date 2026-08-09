@@ -43,7 +43,10 @@ class FFmpegCmdBuilder:
     def _build_global_options(self): # NOTE: сделать  -> list[str] ?
         self._global_options += ['-y', '-hide_banner', 
                 #  '-loglevel', 'level+datetime',
-                #  '-loglevel', 'warning',
+                 '-loglevel', 'warning',
+                #  '-loglevel', 'error',
+                '-nostats',
+                '-progress', 'pipe:1', 
                 ]
 
     def _build_input_options(self):
@@ -121,10 +124,12 @@ class FFmpegCmdBuilder:
                         args += ["-map", f"0:s:{sub.index}"]
             else:
                 args += ["-map", "0:s"]
-        args += self._output_copy_options
         # NOTE если видеопоток НЕ нужно конвертировать, будет просто скопирован как есть: 
+        # args += self._output_copy_options
         if input_video_file.video_need_convert:
             args += self._output_codec_options
+        else:
+            args += self._output_copy_options
 
         args += [str(input_video_file.output_path)]
 

@@ -3,7 +3,8 @@ import json
 import os
 from pathlib import Path
 from dataclasses import dataclass, field, asdict, replace
-from typing import Literal
+from typing import Literal, TextIO
+from collections.abc import Iterable
 
 from rich import print as rprint
 
@@ -34,9 +35,12 @@ class Config():
     use_only_basic_subtitles: bool = field(default=False)
     exclude_subtitles: bool = field(default=False)
     extract_subtitles: bool = field(default=False)
+    
+    found_video_files: list|None = field(default=None)
+    need_rescan: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))
-    _exe_pathes_is_check: bool = field(default=False)  
+    _exe_pathes_is_check: bool = field(default=False)
     
     def __setattr__(self, name, value):
         if name =='output_file_suffix':
