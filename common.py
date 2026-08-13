@@ -1,12 +1,15 @@
 ﻿import subprocess
 import json
-import os
+# import os
 from pathlib import Path
 from dataclasses import dataclass, field, asdict, replace
 from typing import Literal, TextIO
 from collections.abc import Iterable
 
 from rich import print as rprint
+from rich.console import Console
+
+CONSOLE = Console()
 
 DEFAULT_VIDEO_SUFFIXES = [
     ".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v',
@@ -40,7 +43,7 @@ class Config():
     need_rescan: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))
-    _exe_pathes_is_check: bool = field(default=False)
+    _exe_paths_checked: bool = field(default=False)
     
     def __setattr__(self, name, value):
         if name =='output_file_suffix':
@@ -85,7 +88,7 @@ class Config():
         if cfg_loaded:
             self.check_exes()
         # if not cfg_loaded or not self.ffmpeg_path or not self.mediainfo_path:
-        if not cfg_loaded or not self._exe_pathes_is_check:
+        if not cfg_loaded or not self._exe_paths_checked:
             self.find_exes()
             self.save_cfg()
             pass
@@ -93,24 +96,28 @@ class Config():
 
     def find_exes(self):
         if self.ffmpeg_path and self.mediainfo_path:
-            return
+            if self._exe_paths_checked:
+                return
+            else:
+                self.ffmpeg_path = None
+                self.mediainfo_path = None
+
         for path in Path('.').rglob('*.exe'):
             if not self.ffmpeg_path and path.name.lower() == 'ffmpeg.exe':
-                if self._is_ffmeg(path):
+                if self._is_ffmpeg(path):
                     self.ffmpeg_path = str(path.absolute())
             if not self.mediainfo_path and path.name.lower() == 'mediainfo.exe':
                 if self._is_mediainfo(path):
                     self.mediainfo_path = str(path.absolute())
         if self.ffmpeg_path and self.mediainfo_path:
-            self._exe_pathes_is_check = True
+            self._exe_paths_checked = True
 
     def check_exes(self) -> bool:
-        if self.ffmpeg_path and self.mediainfo_path and not self._exe_pathes_is_check:
-            self._exe_pathes_is_check = self._is_ffmeg(self.ffmpeg_path) and self._is_mediainfo(self.mediainfo_path)
-        return self._exe_pathes_is_check
+        if self.ffmpeg_path and self.mediainfo_path and not self._exe_paths_checked:
+            self._exe_paths_checked = self._is_ffmpeg(self.ffmpeg_path) and self._is_mediainfo(self.mediainfo_path)
+        return self._exe_paths_checked
             
-
-    def _is_ffmeg(self, ffmpeg_path: Path|str) -> bool:
+    def _is_ffmpeg(self, ffmpeg_path: Path|str) -> bool:
         ffmpeg_path = Path(ffmpeg_path)
         try:
             process = run_subprocess([ffmpeg_path.absolute(), '-version'])
@@ -132,13 +139,21 @@ class Config():
             return False
 
     def get_dict(self, from_save = False):
-        data = asdict(self)
         if from_save:
-            data.pop('input_dir', None)
-            data.pop('cfg_file_path', None)
-        for k, v in data.items():
-            if isinstance(v, Path):
-                data[k] = str(v)
+            allowed = {
+                'output_dir', 'output_mode',
+                    'ffmpeg_path', 'mediainfo_path',
+                    'video_suffixes', 'output_file_suffix',
+                    'width', 'height',
+                    'find_10bit', 'check_nvidia',
+                    'use_only_basic_subtitles',
+                    'exclude_subtitles', 'extract_subtitles',
+                    }
+            data = {k: str(v) if isinstance(v, Path) else v
+                    for k, v in asdict(self).items()
+                    if k in allowed}
+        else:
+            data = asdict(self)
         return data
     
     def get_replaced_copy(self, **changes):
@@ -185,5 +200,9 @@ def str_to_int(value, default=None):
     return int(digits) if digits else default
 
 if __name__ == "__main__":
+    x = Config()
+    x.load_cfg()
+    rprint(x.get_dict())
+    rprint(x.get_dict(from_save=True))
     # print(str_to_int("s"))
     pass

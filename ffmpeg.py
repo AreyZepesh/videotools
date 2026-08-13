@@ -3,6 +3,7 @@
     run_subprocess, Config,
     rprint,
     )
+
 from mediainfo import SubtitleInfo, MediaFileInfo
 
 class FFmpegCmdBuilder:
@@ -37,7 +38,7 @@ class FFmpegCmdBuilder:
         self._build_output_options()
 
     def _check_exe(self):
-        if not Path(self.cfg.ffmpeg_path).exists():
+        if not self.cfg.ffmpeg_path or not Path(self.cfg.ffmpeg_path).exists():
             raise ValueError("ffmpeg.exe не найден")  
 
     def _build_global_options(self): # NOTE: сделать  -> list[str] ?
@@ -125,11 +126,11 @@ class FFmpegCmdBuilder:
             else:
                 args += ["-map", "0:s"]
         # NOTE если видеопоток НЕ нужно конвертировать, будет просто скопирован как есть: 
-        # args += self._output_copy_options
+        args += self._output_copy_options #TODO не забыть убрать после тестов вывода warning
         if input_video_file.video_need_convert:
             args += self._output_codec_options
-        else:
-            args += self._output_copy_options
+        # else:
+        #     args += self._output_copy_options
 
         args += [str(input_video_file.output_path)]
 
