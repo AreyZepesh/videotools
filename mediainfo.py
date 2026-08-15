@@ -1,7 +1,8 @@
 ﻿from common import (
     subprocess, json, Path, 
     dataclass, field,
-    run_subprocess, Config, str_to_int,
+    run_subprocess, Config, 
+    str_to_int, str_to_float,
     rprint,
     )
 
@@ -37,6 +38,8 @@ class MediaFileInfo():
         self.check_files()
 
         all_tracks = self.get_all_info()
+
+        self.duration_us = self.get_duration_us(all_tracks.get("General"))
 
         self.subtitles: list[SubtitleInfo] = self.get_simple_text_info(all_tracks.get("Text"))
         self.text_need_convert: bool = True if len(self.subtitles) > 6 else False 
@@ -158,7 +161,14 @@ class MediaFileInfo():
         # print(subtitles)
         return subtitles
 
-    
+    def get_duration_us(self, general_tracks: list[dict]) -> int:
+        if len(general_tracks)>1:
+            print(f"ВНИМАНИЕ! Более одного потока информации в файле: {self.path}.\
+                  \n   Потоки кроме первого будут проигнорированы")
+        duration = str_to_float(general_tracks[0].get('Duration'))
+        if duration:
+            duration *= 1000000
+        return duration
 
 def main():
     # f = r"D:\Видео\_кинцо\Новое\Битва за битвой (2025) [One Battle After Another].mkv"
@@ -167,7 +177,8 @@ def main():
     cfg = Config(Path(f).parent)
     cfg.load_cfg()
     data = MediaFileInfo(f, cfg)
-    rprint(data.__dict__)
+    # rprint(data.__dict__)
+    rprint(data.duration_us)
 
 if __name__ == "__main__":
     main()

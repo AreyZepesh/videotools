@@ -9,7 +9,12 @@ from collections.abc import Iterable
 from rich import print as rprint
 from rich.console import Console
 
-CONSOLE = Console()
+from collections.abc import Callable
+
+ProgressData = dict[str, str]
+ProgressCallback = Callable[[ProgressData], None]
+StderrCallback = Callable[[str], None]
+CONSOLE = Console(log_path=False)
 
 DEFAULT_VIDEO_SUFFIXES = [
     ".mp4", ".mkv", ".avi", ".mov", ".ts", '.m4v',
@@ -191,13 +196,23 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         )
 
 def str_to_int(value, default=None):
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
+    if isinstance(value, (int, float)):
         return int(value)
 
     digits = "".join(c for c in str(value or "") if c.isdecimal())
     return int(digits) if digits else default
+
+def str_to_float(value, default=None):
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    s = str(value or "").strip().replace(",", ".")
+
+    allowed = "0123456789.-"
+    filtered = "".join(c for c in s if c in allowed)
+
+    return float(filtered) if filtered else default
+
 
 if __name__ == "__main__":
     x = Config()
