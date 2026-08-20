@@ -37,7 +37,7 @@ def read_stderr(stderr, stderr_pipe: list[str], on_stderr: StderrCallback | None
             if on_stderr:
                 on_stderr(line)
         
-def _execute_convert_video(ffmpeg_args: list[str],
+def execute_convert_video(ffmpeg_args: list[str],
         on_progress: ProgressCallback | None = None,
         on_stderr: StderrCallback | None = None,
         ) -> None:
@@ -68,49 +68,3 @@ def _execute_convert_video(ffmpeg_args: list[str],
         if returncode != 0:
             raise RuntimeError(f"ffmpeg завершился с ошибкой: {returncode}\n{stderr}")
             
-
-def __execute_convert_video_old(ffmpeg_args: list[str]):
-    # with subprocess.Popen(ffmpeg_args,
-    #                     stdout=subprocess.PIPE,
-    #                     stderr=subprocess.PIPE,
-    #                     # stderr=None,
-    #                     text=True,
-    #                     encoding="utf-8-sig",) as process:
-        
-    #     with Progress(
-    #         SpinnerColumn(),
-    #         *Progress.get_default_columns(),
-    #         # TextColumn("{task.description}"), 
-    #         TimeElapsedColumn(),
-    #         # console=CONSOLE,
-    #         ) as live_progress:
-    #         # task_id_err = live_progress.add_task("Warning/Error:", total=None)
-    #         task_id_out = live_progress.add_task("Convert:", total=duration)
-            
-    #         # Читаем ошибки в другом потоке
-    #         stderr_pipe = []
-    #         stderr_thread = threading.Thread(
-    #             target=read_stderr,
-    #             args=(process.stderr, stderr_pipe, live_progress),
-    #             daemon=True, 
-    #                 )
-    #         stderr_thread.start()
-
-    #         for progress_data in read_ffmpeg_progress(process.stdout):
-    #             # live_progress.update(task_id_err, description=pretty_repr(stderr_pipe))
-    #             live_progress.update(task_id_out, 
-    #                                 completed=progress_data.get("out_time_us"),
-    #                                 # description=pretty_repr(progress_data),
-    #                                  )
-
-    #         returncode = process.wait()
-    #         stderr_thread.join()
-    #         # print()
-    #         stderr = '\n'.join(stderr_pipe) #process.stderr.read()
-    #         # print(stderr)
-
-    #         if returncode != 0:
-    #             raise RuntimeError(f"ffmpeg завершился с ошибкой: {returncode}\n{stderr}")
-    process = subprocess.run(ffmpeg_args)
-    if process.returncode != 0:
-        raise RuntimeError(f"Процесс завершился неверно")

@@ -11,7 +11,7 @@ from rich.console import Console
 
 from collections.abc import Callable
 
-ProgressData = dict[str, str]
+ProgressData = dict[str,  str|int|float|None]
 ProgressCallback = Callable[[ProgressData], None]
 StderrCallback = Callable[[str], None]
 CONSOLE = Console(log_path=False)
@@ -44,7 +44,7 @@ class Config():
     exclude_subtitles: bool = field(default=False)
     extract_subtitles: bool = field(default=False)
     
-    found_video_files: list|None = field(default=None)
+    scan_result: list|None = field(default=None)
     need_rescan: bool = field(default=False)
 
     cfg_file_path: str = field(default=Path('./config.json'))

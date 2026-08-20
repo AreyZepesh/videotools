@@ -42,13 +42,13 @@ class MediaFileInfo():
         self.duration_us = self.get_duration_us(all_tracks.get("General"))
 
         self.subtitles: list[SubtitleInfo] = self.get_simple_text_info(all_tracks.get("Text"))
-        self.text_need_convert: bool = True if len(self.subtitles) > 6 else False 
+        self.text_count_exceeded: bool = True if len(self.subtitles) > 3 else False 
         #self.is_text_need_convert(all_tracks.get("Text"))
 
         self.video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
         # if self._text_need_convert:
         #     rprint(len(self.subtitles))
-        self.need_convert: bool = self.video_need_convert or self.text_need_convert
+        self.need_convert: bool = self.video_need_convert or self.text_count_exceeded
 
     def __str__(self):
         return f'{self.path}   ->   {self.output_path}'
@@ -162,8 +162,10 @@ class MediaFileInfo():
         return subtitles
 
     def get_duration_us(self, general_tracks: list[dict]) -> int:
+        if not general_tracks:
+            raise ValueError(f"Не найдено потоков General: {self.path}")
         if len(general_tracks)>1:
-            print(f"ВНИМАНИЕ! Более одного потока информации в файле: {self.path}.\
+            print(f"ВНИМАНИЕ! Более одного потока General: {self.path}.\
                   \n   Потоки кроме первого будут проигнорированы")
         duration = str_to_float(general_tracks[0].get('Duration'))
         if duration:

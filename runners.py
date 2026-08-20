@@ -23,7 +23,7 @@ from rich.markup import escape
 
 from mediainfo import MediaFileInfo
 from ffmpeg import FFmpegCmdBuilder
-from proc import _execute_convert_video
+from proc import execute_convert_video
 
 
 
@@ -48,16 +48,16 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
     return files_to_convert
 
 def run_only_scan(dir_path, cfg: Config):
-    cfg.found_video_files = scan_dir(dir_path, cfg=cfg)
+    cfg.scan_result = scan_dir(dir_path, cfg=cfg)
 
 
 # Progress callback
 def make_rich_progress_callbacks(live_progress: Progress, task_id):
-    def on_progress(progress_data: dict[str, str]) -> None:
+    def on_progress(progress_data: ProgressData) -> None:
         # live_progress.log(f"{progress_data.get("out_time_us")}")
         live_progress.update(task_id, 
                             completed=progress_data.get("out_time_us"),
-                            description=f"Convert ({progress_data.get("speed")}): ",
+                            description=f"Convert ({progress_data.get('speed')}): ",
                                 )
 
     def on_stderr(line: str) -> None:
@@ -66,8 +66,8 @@ def make_rich_progress_callbacks(live_progress: Progress, task_id):
     return on_progress, on_stderr
 
 def make_plain_progress_callbacks(total_duration_us: float|int = 0):
-    def on_progress(progress_data: dict[str, str]) -> None:
-        to_print = [f"Speed: {progress_data.get("speed", "")}"]
+    def on_progress(progress_data: ProgressData) -> None:
+        to_print = [f"Speed: {progress_data.get('speed', '')}"]
         out_time = progress_data.get("out_time_us", 0)
         if total_duration_us and out_time and out_time < total_duration_us:
             percent = (progress_data.get("out_time_us")*100)/total_duration_us
@@ -85,7 +85,8 @@ def make_plain_progress_callbacks(total_duration_us: float|int = 0):
 
 
 # Single conversion
-def _base_run_single_conversion(
+def run_single_conversion_with_callbacks(
+# _base_run_single_conversion
         input_video_file: MediaFileInfo,
         ff_cmd: FFmpegCmdBuilder,
         fallback_ff_cmd: FFmpegCmdBuilder,
@@ -96,24 +97,24 @@ def _base_run_single_conversion(
     if on_stderr:
         on_stderr(f"\rStart: {input_video_file}")
     try:
-        _execute_convert_video(
+        execute_convert_video(
             ff_cmd.build(input_video_file),
             on_progress=on_progress,
             on_stderr=on_stderr, 
                 )
     except Exception as nvidia_ex:
         if on_stderr:
-            on_stderr(nvidia_ex)
+            on_stderr(str(nvidia_ex))
             on_stderr(f"Пробуем конвертацию с другими параметрами")
         try:
-            _execute_convert_video( 
+            execute_convert_video( 
                 fallback_ff_cmd.build(input_video_file),
                 on_progress=on_progress,
                 on_stderr=on_stderr, 
                     )
         except Exception as fallback_ex:
             if on_stderr:
-                on_stderr(fallback_ex)
+                on_stderr(str(fallback_ex))
                 on_stderr(f"Пропуск файла: {input_video_file.path}")
             raise fallback_ex
 
@@ -125,7 +126,7 @@ def run_single_conversion_plain(
     # print(input_video_file)
     on_progress, on_stderr = make_plain_progress_callbacks(input_video_file.duration_us)
 
-    _base_run_single_conversion(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
+    run_single_conversion_with_callbacks(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
             
 def run_single_conversion_rich(
         input_video_file: MediaFileInfo,
@@ -143,21 +144,21 @@ def run_single_conversion_rich(
         task_id = live_progress.add_task("Convert ( speed ): ", total=input_video_file.duration_us)
         on_progress, on_stderr = make_rich_progress_callbacks(live_progress, task_id)
 
-        _base_run_single_conversion(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
+        run_single_conversion_with_callbacks(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
 
 # Mass conversion
 def run_mass_conversion(dir_path, 
                         cfg: Config,
                         progress_mode: Literal["plain", "rich"] = "plain",
                         ) -> None:
-    if cfg.need_rescan or not cfg.found_video_files:
+    if cfg.need_rescan or not cfg.scan_result:
         rprint("Список пуст, запуск поиска")
         run_only_scan(dir_path, cfg=cfg)
 
-    if not cfg.found_video_files:
+    if not cfg.scan_result:
         return
     
-    rprint(f"По заданным параметрам найдено: {len(cfg.found_video_files)}")
+    rprint(f"По заданным параметрам найдено: {len(cfg.scan_result)}")
 
     ff_cmd = FFmpegCmdBuilder(cfg)
     fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
@@ -168,7 +169,7 @@ def run_mass_conversion(dir_path,
         }
     runner = runners.get(progress_mode, run_single_conversion_plain)
     
-    for video_file in cfg.found_video_files:
+    for video_file in cfg.scan_result:
         video_file: MediaFileInfo
         try:
             runner(video_file, ff_cmd, fallback_ff_cmd)
@@ -198,7 +199,7 @@ def run_test():
 
     # ff_cmd = FFmpegCmdBuilder(cfg)
     # run_only_scan(dir, cfg)
-    # for line in cfg.found_video_files:
+    # for line in cfg.scan_result:
     #     print()
     #     print(ff_cmd.printable(ff_cmd.build(line)))
 
