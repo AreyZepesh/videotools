@@ -1,15 +1,26 @@
-﻿from common import (
-    subprocess, 
-    # json, Path,
-    # run_subprocess, Config,
-    TextIO, Iterable,
-    rprint, 
+﻿import subprocess
+import threading
+from collections.abc import Iterable
+from typing import TextIO
+from collections.abc import Callable
+
+from common import (
     str_to_int, str_to_float,
-    # CONSOLE,
-    ProgressData, ProgressCallback, StderrCallback,
     )
 
-import threading
+
+ProgressData = dict[str,  str|int|float|None]
+ProgressCallback = Callable[[ProgressData], None]
+StderrCallback = Callable[[str], None]
+
+def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        encoding="utf-8-sig",
+        **kwargs
+        )
 
 def read_ffmpeg_progress(stdout: Iterable[str]|TextIO):
     progress = {}

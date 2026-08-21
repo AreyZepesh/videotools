@@ -1,10 +1,10 @@
-﻿from common import (
-    subprocess, json, Path,
-    run_subprocess, Config,
-    rprint,
-    )
+﻿from common import Path # from pathlib import
 
-from mediainfo import SubtitleInfo, MediaFileInfo
+from config import Config
+
+from proc import subprocess, run_subprocess
+
+from mediainfo import MediaFileInfo
 
 class FFmpegCmdBuilder:
     def __init__(self, cfg: Config, only_CPU: bool = False):
@@ -125,15 +125,13 @@ class FFmpegCmdBuilder:
                         args += ["-map", f"0:s:{sub.index}"]
             else:
                 args += ["-map", "0:s"]
+
         # NOTE если видеопоток НЕ нужно конвертировать, будет просто скопирован как есть: 
-        args += self._output_copy_options #TODO не забыть убрать после тестов вывода warning
+        args += self._output_copy_options 
         if input_video_file.video_need_convert:
             args += self._output_codec_options
-        # else:
-        #     args += self._output_copy_options
 
         args += [str(input_video_file.output_path)]
-
 
         if (self.cfg.extract_subtitles or not is_mkv) and input_video_file.subtitles:
             for sub in input_video_file.subtitles:

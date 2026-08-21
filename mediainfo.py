@@ -1,12 +1,14 @@
-﻿from common import (
-    subprocess, json, Path, 
-    dataclass, field,
-    run_subprocess, Config, 
+﻿from collections import defaultdict
+
+from common import (
+    json,
+    Path, # from pathlib import
+    dataclass, # from dataclasses import
     str_to_int, str_to_float,
-    rprint,
     )
 
-from collections import defaultdict
+from config import Config
+from proc import run_subprocess
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,7 @@ class MediaFileInfo():
 
         self.video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
         # if self._text_need_convert:
-        #     rprint(len(self.subtitles))
+        #     print(len(self.subtitles))
         self.need_convert: bool = self.video_need_convert or self.text_count_exceeded
 
     def __str__(self):
@@ -179,8 +181,8 @@ def main():
     cfg = Config(Path(f).parent)
     cfg.load_cfg()
     data = MediaFileInfo(f, cfg)
-    # rprint(data.__dict__)
-    rprint(data.duration_us)
+    # print(data.__dict__)
+    print(data.duration_us)
 
 if __name__ == "__main__":
     main()

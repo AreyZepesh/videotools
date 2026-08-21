@@ -1,29 +1,25 @@
-﻿from common import (
-    # subprocess, json, 
-    Literal,
-    Path,
-    # run_subprocess, 
-    Config,
-    # TextIO, Iterable,
-    rprint,
-    CONSOLE,
-    ProgressData, ProgressCallback, StderrCallback,
-    )
-
+﻿from rich import print as rprint
+from rich.console import Console
+from rich.markup import escape
 from rich.progress import (
     Progress, 
     TextColumn, 
     BarColumn, TaskProgressColumn,
     TimeElapsedColumn, 
-    # Task, 
-    # SpinnerColumn,
-                           )
-# from rich.pretty import pretty_repr
-from rich.markup import escape
+        )
 
+from common import (
+    Literal, # from typing import
+    Path, # from pathlib import
+        )
+from proc import (
+    execute_convert_video, ProgressData, 
+    ProgressCallback, StderrCallback, 
+        )
+
+from config import Config
 from mediainfo import MediaFileInfo
 from ffmpeg import FFmpegCmdBuilder
-from proc import execute_convert_video
 
 
 
@@ -138,7 +134,7 @@ def run_single_conversion_rich(
             BarColumn(),
             TaskProgressColumn(),
             TimeElapsedColumn(),
-            console=CONSOLE,
+            console=Console(log_path=False),
             ) as live_progress:
         # live_progress.log(f"Start: {input_video_file}")
         task_id = live_progress.add_task("Convert ( speed ): ", total=input_video_file.duration_us)
