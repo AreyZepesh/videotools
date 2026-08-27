@@ -1,13 +1,11 @@
 ﻿import subprocess
 import threading
-from collections.abc import Iterable
 from typing import TextIO
-from collections.abc import Callable
+from collections.abc import Iterable, Callable
 
 from common import (
     str_to_int, str_to_float,
     )
-
 
 ProgressData = dict[str,  str|int|float|None]
 ProgressCallback = Callable[[ProgressData], None]

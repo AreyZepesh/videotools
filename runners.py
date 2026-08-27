@@ -1,29 +1,22 @@
 ﻿from rich import print as rprint
-from rich.console import Console
-from rich.markup import escape
-from rich.progress import (
-    Progress, 
-    TextColumn, 
-    BarColumn, TaskProgressColumn,
-    TimeElapsedColumn, 
-        )
 
 from common import (
     Literal, # from typing import
     Path, # from pathlib import
         )
 from proc import (
-    execute_convert_video, ProgressData, 
-    ProgressCallback, StderrCallback, 
+    execute_convert_video, 
         )
 
 from config import Config
 from mediainfo import MediaFileInfo
 from ffmpeg import FFmpegCmdBuilder
 
-
-
-#TODO: Разобраться с компановкой функций по модулям
+from progress import (
+    MyProgress,
+    PlainProgress,
+    RichProgress,
+    )
 
 # Path scan
 def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
@@ -46,135 +39,84 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
 def run_only_scan(dir_path, cfg: Config):
     cfg.scan_result = scan_dir(dir_path, cfg=cfg)
 
-
-# Progress callback
-def make_rich_progress_callbacks(live_progress: Progress, task_id):
-    def on_progress(progress_data: ProgressData) -> None:
-        # live_progress.log(f"{progress_data.get("out_time_us")}")
-        live_progress.update(task_id, 
-                            completed=progress_data.get("out_time_us"),
-                            description=f"Convert ({progress_data.get('speed')}): ",
-                                )
-
-    def on_stderr(line: str) -> None:
-        live_progress.log(escape(line))
-
-    return on_progress, on_stderr
-
-def make_plain_progress_callbacks(total_duration_us: float|int = 0):
-    def on_progress(progress_data: ProgressData) -> None:
-        to_print = [f"Speed: {progress_data.get('speed', '')}"]
-        out_time = progress_data.get("out_time_us", 0)
-        if total_duration_us and out_time and out_time < total_duration_us:
-            percent = (progress_data.get("out_time_us")*100)/total_duration_us
-            to_print.append(f"Progress: {percent:.2f}%")
-        elif out_time:
-            to_print.append(f"Out time: {out_time}")
-
-        print("\r", " ".join(to_print), end='', flush=True)
-
-    def on_stderr(line: str) -> None:
-        print("\r", f"Error/warning: {line}\n", end='', flush=True)    
-
-    return on_progress, on_stderr
-
-
-
 # Single conversion
 def run_single_conversion_with_callbacks(
-# _base_run_single_conversion
         input_video_file: MediaFileInfo,
         ff_cmd: FFmpegCmdBuilder,
         fallback_ff_cmd: FFmpegCmdBuilder,
-        on_progress: ProgressCallback | None = None,
-        on_stderr: StderrCallback | None = None,
+        progress: MyProgress,
         ) -> None:
     input_video_file.output_path.parent.mkdir(parents=True, exist_ok=True)
-    if on_stderr:
-        on_stderr(f"\rStart: {input_video_file}")
+    
+    on_log = progress.on_log
+    on_progress = progress.on_conversion_progress
+
+    on_log(f"\rStart: {input_video_file}")
+
     try:
         execute_convert_video(
             ff_cmd.build(input_video_file),
             on_progress=on_progress,
-            on_stderr=on_stderr, 
+            on_stderr=on_log, 
                 )
+    except KeyboardInterrupt:
+        raise KeyboardInterrupt
     except Exception as nvidia_ex:
-        if on_stderr:
-            on_stderr(str(nvidia_ex))
-            on_stderr(f"Пробуем конвертацию с другими параметрами")
+        if on_log:
+            on_log(str(nvidia_ex))
+            on_log(f"Пробуем конвертацию с другими параметрами")
         try:
             execute_convert_video( 
                 fallback_ff_cmd.build(input_video_file),
                 on_progress=on_progress,
-                on_stderr=on_stderr, 
+                on_stderr=on_log, 
                     )
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
         except Exception as fallback_ex:
-            if on_stderr:
-                on_stderr(str(fallback_ex))
-                on_stderr(f"Пропуск файла: {input_video_file.path}")
+            if on_log:
+                on_log(str(fallback_ex))
+                on_log(f"Пропуск файла: {input_video_file.path}")
             raise fallback_ex
 
-def run_single_conversion_plain(
-        input_video_file: MediaFileInfo,
-        ff_cmd: FFmpegCmdBuilder,
-        fallback_ff_cmd: FFmpegCmdBuilder,
-        ) -> None:
-    # print(input_video_file)
-    on_progress, on_stderr = make_plain_progress_callbacks(input_video_file.duration_us)
-
-    run_single_conversion_with_callbacks(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
-            
-def run_single_conversion_rich(
-        input_video_file: MediaFileInfo,
-        ff_cmd: FFmpegCmdBuilder,
-        fallback_ff_cmd: FFmpegCmdBuilder,
-        ) -> None:
-    with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=Console(log_path=False),
-            ) as live_progress:
-        # live_progress.log(f"Start: {input_video_file}")
-        task_id = live_progress.add_task("Convert ( speed ): ", total=input_video_file.duration_us)
-        on_progress, on_stderr = make_rich_progress_callbacks(live_progress, task_id)
-
-        run_single_conversion_with_callbacks(input_video_file, ff_cmd, fallback_ff_cmd, on_progress, on_stderr)
-
-# Mass conversion
 def run_mass_conversion(dir_path, 
                         cfg: Config,
                         progress_mode: Literal["plain", "rich"] = "plain",
                         ) -> None:
-    if cfg.need_rescan or not cfg.scan_result:
-        rprint("Список пуст, запуск поиска")
-        run_only_scan(dir_path, cfg=cfg)
+    progress_type = {"plain": PlainProgress(),
+                     "rich": RichProgress(),}
+    progress: MyProgress = progress_type.get(progress_mode, PlainProgress)
 
-    if not cfg.scan_result:
-        return
-    
-    rprint(f"По заданным параметрам найдено: {len(cfg.scan_result)}")
+    with progress.live_progress:
+        if cfg.need_rescan or not cfg.scan_result:
+            progress.print("Список пуст, запуск поиска")
+            run_only_scan(dir_path, cfg=cfg)
 
-    ff_cmd = FFmpegCmdBuilder(cfg)
-    fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
-    runners = {
-        "plain": run_single_conversion_plain,
-        "rich": run_single_conversion_rich,
-        # "tkinter": run_single_conversion_tkinter,
-        }
-    runner = runners.get(progress_mode, run_single_conversion_plain)
-    
-    for video_file in cfg.scan_result:
-        video_file: MediaFileInfo
-        try:
-            runner(video_file, ff_cmd, fallback_ff_cmd)
-        except KeyboardInterrupt:
-            print("Прервано пользователем")
-            break
-        except:
-            if video_file.output_path.exists():
-                video_file.output_path.unlink()
+        if not cfg.scan_result:
+            return
+        
+        progress.print(f"По заданным параметрам найдено: {len(cfg.scan_result)}")
+
+        ff_cmd = FFmpegCmdBuilder(cfg)
+        fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
+        
+        cfg.scan_result.reverse()
+
+        progress.add_files_progress(len(cfg.scan_result))
+        for video_file in cfg.scan_result:
+            video_file: MediaFileInfo
+            try:
+                progress.add_conversion_progress(video_file.duration_us)
+                run_single_conversion_with_callbacks(video_file, ff_cmd, fallback_ff_cmd, progress)
+            except KeyboardInterrupt:
+                print("\nПрервано пользователем")
+                break
+            except:
+                if video_file.output_path.exists():
+                    video_file.output_path.unlink()
+            finally:
+                progress.done_conversion_progress()
+                progress.update_files_progress()
 
 # OTHER BLOCK
 def run_test():
