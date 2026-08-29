@@ -1,15 +1,16 @@
 ﻿import subprocess
 import threading
 from typing import TextIO
-from collections.abc import Iterable, Callable
+from collections.abc import Iterable
 
 from common import (
     str_to_int, str_to_float,
+    ProgressData, ProgressCallback, StderrCallback,
     )
 
-ProgressData = dict[str,  str|int|float|None]
-ProgressCallback = Callable[[ProgressData], None]
-StderrCallback = Callable[[str], None]
+
+def list2cmdline(*args, **kwargs):
+    return subprocess.list2cmdline(*args, **kwargs)
 
 def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -21,7 +22,7 @@ def run_subprocess(args: list, **kwargs) -> subprocess.CompletedProcess:
         )
 
 def read_ffmpeg_progress(stdout: Iterable[str]|TextIO):
-    progress = {}
+    progress: ProgressData = {}
     for line in stdout:
         line = line.strip()
         if not line or "=" not in line:

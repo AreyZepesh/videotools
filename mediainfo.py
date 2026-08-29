@@ -44,13 +44,13 @@ class MediaFileInfo():
         self.duration_us = self.get_duration_us(all_tracks.get("General"))
 
         self.subtitles: list[SubtitleInfo] = self.get_simple_text_info(all_tracks.get("Text"))
-        self.text_count_exceeded: bool = True if len(self.subtitles) > 3 else False 
+        self.subtitle_count_exceeded: bool = True if len(self.subtitles) > 3 else False 
         #self.is_text_need_convert(all_tracks.get("Text"))
 
         self.video_need_convert: bool = self.is_video_need_convert(all_tracks.get("Video"))
         # if self._text_need_convert:
         #     print(len(self.subtitles))
-        self.need_convert: bool = self.video_need_convert or self.text_count_exceeded
+        self.need_convert: bool = self.video_need_convert or self.subtitle_count_exceeded
 
     def __str__(self):
         return f'{self.path}   ->   {self.output_path}'
@@ -120,7 +120,7 @@ class MediaFileInfo():
         return needs_convert
 
     @staticmethod
-    def _get_sub_suffix_and_codec(codec: str) -> tuple[str]:
+    def _get_sub_suffix_and_codec(codec: str) -> tuple[str]|None:
         d = {   "S_TEXT/UTF8": (".srt", "subrip"),
                 "S_TEXT/ASS": (".ass", "ass"),
                 "S_TEXT/SSA": (".ssa", "ssa"),
@@ -132,7 +132,7 @@ class MediaFileInfo():
                 }
         return d.get(codec)
          
-    def get_simple_text_info(self, subtitle_tracks: list[dict]) -> bool:
+    def get_simple_text_info(self, subtitle_tracks: list[dict]) -> list[SubtitleInfo]:
         subtitles = []
         if not subtitle_tracks:
             return subtitles
@@ -163,7 +163,7 @@ class MediaFileInfo():
         # print(subtitles)
         return subtitles
 
-    def get_duration_us(self, general_tracks: list[dict]) -> int:
+    def get_duration_us(self, general_tracks: list[dict]) -> float | int | None:
         if not general_tracks:
             raise ValueError(f"Не найдено потоков General: {self.path}")
         if len(general_tracks)>1:
@@ -182,7 +182,9 @@ def main():
     cfg.load_cfg()
     data = MediaFileInfo(f, cfg)
     # print(data.__dict__)
-    print(data.duration_us)
+    print(
+        data._get_sub_suffix_and_codec("S_TEXT/UTF8")
+        )
 
 if __name__ == "__main__":
     main()

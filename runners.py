@@ -13,7 +13,7 @@ from mediainfo import MediaFileInfo
 from ffmpeg import FFmpegCmdBuilder
 
 from progress import (
-    MyProgress,
+    ConversionProgress,
     PlainProgress,
     RichProgress,
     )
@@ -44,7 +44,7 @@ def run_single_conversion_with_callbacks(
         input_video_file: MediaFileInfo,
         ff_cmd: FFmpegCmdBuilder,
         fallback_ff_cmd: FFmpegCmdBuilder,
-        progress: MyProgress,
+        progress: ConversionProgress,
         ) -> None:
     input_video_file.output_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -85,7 +85,7 @@ def run_mass_conversion(dir_path,
                         ) -> None:
     progress_type = {"plain": PlainProgress(),
                      "rich": RichProgress(),}
-    progress: MyProgress = progress_type.get(progress_mode, PlainProgress)
+    progress: ConversionProgress = progress_type.get(progress_mode, PlainProgress())
 
     with progress.live_progress:
         if cfg.need_rescan or not cfg.scan_result:
@@ -100,7 +100,7 @@ def run_mass_conversion(dir_path,
         ff_cmd = FFmpegCmdBuilder(cfg)
         fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
         
-        cfg.scan_result.reverse()
+        cfg.scan_result.reverse() #TODO - для тестов, убрать после
 
         progress.add_files_progress(len(cfg.scan_result))
         for video_file in cfg.scan_result:
@@ -111,7 +111,8 @@ def run_mass_conversion(dir_path,
             except KeyboardInterrupt:
                 print("\nПрервано пользователем")
                 break
-            except:
+            except Exception as convert_ex:
+                progress.on_log(str(convert_ex))
                 if video_file.output_path.exists():
                     video_file.output_path.unlink()
             finally:
@@ -135,16 +136,16 @@ def run_test():
     # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
 
-    # ff_cmd = FFmpegCmdBuilder(cfg)
-    # run_only_scan(dir, cfg)
-    # for line in cfg.scan_result:
-    #     print()
-    #     print(ff_cmd.printable(ff_cmd.build(line)))
+    ff_cmd = FFmpegCmdBuilder(cfg)
+    run_only_scan(dir, cfg)
+    for line in cfg.scan_result:
+        print()
+        print(ff_cmd.printable(ff_cmd.build(line)))
 
 
-    run_mass_conversion(dir, cfg, 
-                        "rich",
-                        )
+    # run_mass_conversion(dir, cfg, 
+    #                     "rich",
+    #                     )
 
 def main():
     run_test()

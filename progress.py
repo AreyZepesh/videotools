@@ -1,22 +1,23 @@
 ﻿from rich.console import Console, Group
 from rich.markup import escape
-from rich.text import Text
+# from rich.text import Text
 from rich.live import Live
 from rich.progress import (
     Progress, 
     TextColumn, 
     BarColumn, TaskProgressColumn,
     TimeElapsedColumn, 
-    MofNCompleteColumn, ProgressColumn,
+    MofNCompleteColumn, 
+    # ProgressColumn,
         )
 
 from contextlib import contextmanager
 from typing import Protocol
 import time
 
-from proc import ProgressData
+from common import ProgressData
 
-class MyProgress(Protocol):
+class ConversionProgress(Protocol):
     def add_files_progress(self, total: int = 0) -> None:
         ...
 
@@ -35,16 +36,9 @@ class MyProgress(Protocol):
     def on_log(self, line: str) -> None:
         ...
     
-    def print(self, lint: str) -> None:
+    def print(self, line: str) -> None:
         ...
 
-class AdaptiveColumn(ProgressColumn):
-    def render(self, task) -> Text:
-        if task.fields.get("style") == "count":
-            return Text(f"{int(task.completed)}/{int(task.total)}")
-        percent = (task.completed / task.total * 100) if task.total else 0
-        return Text(f"{percent:>3.0f}%")
-    
 class PlainProgress:
     def __init__(self):
         self.live_progress = self._live_progress_cm()
@@ -87,6 +81,8 @@ class PlainProgress:
         print("\r   ", " ".join(to_print), end='', flush=True)
 
     def done_conversion_progress(self):
+        if self.start_time is None:
+            return
         self.end_time = time.time()
         execution_time = self.end_time - self.start_time
         print(f"\nЗавершено за {execution_time:.2f} секунды")
@@ -160,3 +156,11 @@ class RichProgress:
     def print(self, line: str) -> None:
         self.console.print(escape(line))
         
+
+# class AdaptiveColumn(ProgressColumn):
+#     def render(self, task) -> Text:
+#         if task.fields.get("style") == "count":
+#             return Text(f"{int(task.completed)}/{int(task.total)}")
+#         percent = (task.completed / task.total * 100) if task.total else 0
+#         return Text(f"{percent:>3.0f}%")
+    

@@ -2,7 +2,7 @@
 
 from config import Config
 
-from proc import subprocess, run_subprocess
+from proc import list2cmdline, run_subprocess
 
 from mediainfo import MediaFileInfo
 
@@ -138,13 +138,13 @@ class FFmpegCmdBuilder:
                 if self.cfg.use_only_basic_subtitles and not sub.is_basic():
                     # Если опция говорит 'только базовые субтитры', то пропускаем не базовые
                     continue
-                args += ["-map", f"0:s:{sub.index}", "-c:s", sub.codec, sub.out_path]
+                args += ["-map", f"0:s:{sub.index}", "-c:s", sub.codec, str(sub.out_path)]
 
         return args
 
     @staticmethod
     def printable(args: list[str]) -> str:
-        return subprocess.list2cmdline(args)
+        return list2cmdline(args)
 
 # FFMPEG BLOCK
 def _parse_codecs(data: str, codec_filter: str) ->list[str]:

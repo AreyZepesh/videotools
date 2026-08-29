@@ -3,6 +3,11 @@
 from pathlib import Path # config.py, ffmpeg.py, mediainfo.py, runners.py, gui.py
 from dataclasses import dataclass # config.py, mediainfo.py
 from typing import Literal # config.py, runners.py
+from collections.abc import Callable
+
+ProgressData = dict[str,  str|int|float|None]
+ProgressCallback = Callable[[ProgressData], None]
+StderrCallback = Callable[[str], None]
 
 
 def str_to_int(value, default=None):
