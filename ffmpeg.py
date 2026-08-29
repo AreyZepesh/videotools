@@ -1,5 +1,5 @@
-﻿from common import Path # from pathlib import
-
+﻿# from common import Path # from pathlib import
+from pathlib import Path
 from config import Config
 
 from proc import list2cmdline, run_subprocess

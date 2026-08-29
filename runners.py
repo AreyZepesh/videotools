@@ -1,12 +1,6 @@
-﻿from rich import print as rprint
-
-from common import (
-    Literal, # from typing import
-    Path, # from pathlib import
-        )
-from proc import (
-    execute_convert_video, 
-        )
+﻿from typing import Literal
+from pathlib import Path
+from proc import execute_convert_video
 
 from config import Config
 from mediainfo import MediaFileInfo
@@ -31,7 +25,7 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
             if v_file.need_convert:
                 files_to_convert.append(v_file)
         except Exception as scan_ex:
-            rprint(scan_ex)
+            print(scan_ex)
             continue
 
     return files_to_convert
@@ -136,16 +130,16 @@ def run_test():
     # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
 
-    ff_cmd = FFmpegCmdBuilder(cfg)
-    run_only_scan(dir, cfg)
-    for line in cfg.scan_result:
-        print()
-        print(ff_cmd.printable(ff_cmd.build(line)))
+    # ff_cmd = FFmpegCmdBuilder(cfg)
+    # run_only_scan(dir, cfg)
+    # for line in cfg.scan_result:
+    #     print()
+    #     print(ff_cmd.printable(ff_cmd.build(line)))
 
 
-    # run_mass_conversion(dir, cfg, 
-    #                     "rich",
-    #                     )
+    run_mass_conversion(dir, cfg, 
+                        "rich",
+                        )
 
 def main():
     run_test()

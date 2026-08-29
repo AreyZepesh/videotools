@@ -1,11 +1,8 @@
-﻿from dataclasses import field, asdict, replace
+﻿from dataclasses import field, asdict, replace, dataclass
+from typing import Literal
+from pathlib import Path
+import json
 
-from common import (
-    dataclass, # from dataclasses import
-    Path, # from pathlib import
-    Literal,  # from typing import 
-    json,
-    )
 
 from proc import run_subprocess
 

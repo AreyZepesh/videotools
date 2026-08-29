@@ -1,6 +1,5 @@
 ﻿from rich.console import Console, Group
 from rich.markup import escape
-# from rich.text import Text
 from rich.live import Live
 from rich.progress import (
     Progress, 
@@ -8,7 +7,6 @@ from rich.progress import (
     BarColumn, TaskProgressColumn,
     TimeElapsedColumn, 
     MofNCompleteColumn, 
-    # ProgressColumn,
         )
 
 from contextlib import contextmanager
@@ -155,12 +153,3 @@ class RichProgress:
         
     def print(self, line: str) -> None:
         self.console.print(escape(line))
-        
-
-# class AdaptiveColumn(ProgressColumn):
-#     def render(self, task) -> Text:
-#         if task.fields.get("style") == "count":
-#             return Text(f"{int(task.completed)}/{int(task.total)}")
-#         percent = (task.completed / task.total * 100) if task.total else 0
-#         return Text(f"{percent:>3.0f}%")
-    

@@ -1,12 +1,8 @@
 ﻿from collections import defaultdict
-
-from common import (
-    json,
-    Path, # from pathlib import
-    dataclass, # from dataclasses import
-    str_to_int, str_to_float,
-    )
-
+from dataclasses import dataclass
+from pathlib import Path
+import json
+from common import str_to_int, str_to_float
 from config import Config
 from proc import run_subprocess
 
