@@ -153,3 +153,12 @@ class RichProgress:
         
     def print(self, line: str) -> None:
         self.console.print(escape(line))
+
+        
+def make_progress(progress_mode: str) -> ConversionProgress:
+    progress_type = {
+        "plain": PlainProgress,
+        "rich": RichProgress,
+            }
+    progress: ConversionProgress = progress_type.get(progress_mode, PlainProgress)
+    return progress()

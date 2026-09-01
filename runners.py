@@ -8,14 +8,13 @@ from ffmpeg import FFmpegCmdBuilder
 
 from progress import (
     ConversionProgress,
-    PlainProgress,
-    RichProgress,
+    make_progress,
     )
 
 # Path scan
-def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
+def scan_dir(cfg: Config) -> list[MediaFileInfo]:
     files_to_convert = []
-    for file_path in Path(dir_path).rglob("*"):
+    for file_path in cfg.input_dir.rglob("*"):
         if file_path.is_dir():
             continue
         if file_path.suffix.lower() not in cfg.video_suffixes:
@@ -30,8 +29,8 @@ def scan_dir(dir_path: str|Path, cfg: Config) -> list[MediaFileInfo]:
 
     return files_to_convert
 
-def run_only_scan(dir_path, cfg: Config):
-    cfg.scan_result = scan_dir(dir_path, cfg=cfg)
+def run_only_scan(cfg: Config):
+    cfg.scan_result = scan_dir(cfg=cfg)
 
 # Single conversion
 def run_single_conversion_with_callbacks(
@@ -41,50 +40,51 @@ def run_single_conversion_with_callbacks(
         progress: ConversionProgress,
         ) -> None:
     input_video_file.output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+    primary_args = ff_cmd.build(input_video_file)
+    fallback_args = fallback_ff_cmd.build(input_video_file)
     on_log = progress.on_log
     on_progress = progress.on_conversion_progress
 
     on_log(f"\rStart: {input_video_file}")
-
     try:
         execute_convert_video(
-            ff_cmd.build(input_video_file),
+            primary_args,
             on_progress=on_progress,
             on_stderr=on_log, 
                 )
     except KeyboardInterrupt:
-        raise KeyboardInterrupt
-    except Exception as nvidia_ex:
-        if on_log:
-            on_log(str(nvidia_ex))
-            on_log(f"Пробуем конвертацию с другими параметрами")
+        raise 
+    except Exception as primary_ex:
+        on_log(str(primary_ex))
+        if primary_args == fallback_args:
+            # on_log("Запасная команда совпадает с основной, повтор пропущен")
+            raise primary_ex
+        on_log(f"Пробуем конвертацию с другими параметрами")
+
         try:
             execute_convert_video( 
-                fallback_ff_cmd.build(input_video_file),
+                fallback_args,
                 on_progress=on_progress,
                 on_stderr=on_log, 
                     )
         except KeyboardInterrupt:
-            raise KeyboardInterrupt
+            raise 
         except Exception as fallback_ex:
-            if on_log:
-                on_log(str(fallback_ex))
-                on_log(f"Пропуск файла: {input_video_file.path}")
+            on_log(str(fallback_ex))
+            on_log(f"Пропуск файла: {input_video_file.path}")
             raise fallback_ex
 
-def run_mass_conversion(dir_path, 
+def run_mass_conversion(
+        # dir_path, 
                         cfg: Config,
-                        progress_mode: Literal["plain", "rich"] = "plain",
+                        # progress_mode: Literal["plain", "rich"] = "plain",
                         ) -> None:
-    progress_type = {"plain": PlainProgress(),
-                     "rich": RichProgress(),}
-    progress: ConversionProgress = progress_type.get(progress_mode, PlainProgress())
+    progress = make_progress(cfg.progress_mode)
 
     with progress.live_progress:
         if cfg.need_rescan or not cfg.scan_result:
             progress.print("Список пуст, запуск поиска")
-            run_only_scan(dir_path, cfg=cfg)
+            run_only_scan(cfg=cfg)
 
         if not cfg.scan_result:
             return
@@ -127,19 +127,21 @@ def run_test():
     cfg.input_dir = Path(dir)
     cfg.output_dir = Path(r"D:\Видео\_converted")
     cfg.output_file_suffix = 'mp4'
+    # cfg.progress_mode = "plain"
     # cfg.output_mode = "subfolder"
     # dir = r"G:\\"
 
     # ff_cmd = FFmpegCmdBuilder(cfg)
-    # run_only_scan(dir, cfg)
+    # fallback_ff_cmd = FFmpegCmdBuilder(cfg, only_CPU=True)
+
+    # run_only_scan(cfg)
     # for line in cfg.scan_result:
     #     print()
     #     print(ff_cmd.printable(ff_cmd.build(line)))
+    #     print(ff_cmd.printable(fallback_ff_cmd.build(line)))
 
 
-    run_mass_conversion(dir, cfg, 
-                        "rich",
-                        )
+    run_mass_conversion(cfg)
 
 def main():
     run_test()

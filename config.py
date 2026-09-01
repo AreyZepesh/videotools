@@ -3,7 +3,6 @@ from typing import Literal
 from pathlib import Path
 import json
 
-
 from proc import run_subprocess
 
 DEFAULT_VIDEO_SUFFIXES = [
@@ -19,6 +18,7 @@ class Config():
     input_dir: Path|str|None = field( default_factory=lambda: Path(__file__).parent.absolute() )
     output_dir: Path|str|None = field(default=None)
     output_mode: Literal["tree", "subfolder"] = field(default="tree")
+    progress_mode: Literal["plain", "rich"] = field(default="rich")
 
     ffmpeg_path: Path|str|None = field(default=None)
     mediainfo_path: Path|str|None = field(default=None)
@@ -51,6 +51,9 @@ class Config():
         if name =='output_mode':
             if value not in ["tree", "subfolder"]:
                 raise ValueError('output_mode может быть только "tree" или "subfolder"')
+        if name =='progress_mode':
+            if value not in ["plain", "rich"]:
+                raise ValueError('output_mode может быть только "plain" или "rich"')
         if name in ['input_dir', 'output_dir', 'ffmpeg_path', 'mediainfo_path', 'cfg_file_path']:
             value = Path(value).absolute() if value else None
         super().__setattr__(name, value)
@@ -138,12 +141,12 @@ class Config():
         if from_save:
             allowed = {
                 'output_dir', 'output_mode',
-                    'ffmpeg_path', 'mediainfo_path',
-                    'video_suffixes', 'output_file_suffix',
-                    'width', 'height',
-                    'find_10bit', 'check_nvidia',
-                    'use_only_basic_subtitles',
-                    'exclude_subtitles', 'extract_subtitles',
+                'ffmpeg_path', 'mediainfo_path',
+                'video_suffixes', 'output_file_suffix',
+                'width', 'height',
+                'find_10bit', 'check_nvidia',
+                'use_only_basic_subtitles',
+                'exclude_subtitles', 'extract_subtitles',
                     }
             data = {k: str(v) if isinstance(v, Path) else v
                     for k, v in asdict(self).items()
@@ -173,4 +176,3 @@ class Config():
         if self.output_file_suffix:
             output_path = output_path.with_suffix(self.output_file_suffix)
         return output_path
-        
